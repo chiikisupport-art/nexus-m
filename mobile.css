@@ -10,3 +10,10 @@ header{flex-wrap:wrap;gap:8px}.status-row{gap:6px}.main,.app.task-hidden .main{d
 /* iPhone は動画が流れ始めるまで描かないので、そのあいだ光の層だけがオレンジの四角に見える → 流れ始めてから核を出す */
 #nxCore2{opacity:0;transition:opacity .4s}
 #nxCore2.nx-playing{opacity:1}
+/* 初めての導入案内（onboard.js） */
+#nxOnboard{position:fixed;z-index:60;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);max-height:66vh;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px 14px;border:1px solid rgba(120,200,255,.45);border-radius:12px;background:#050c1a;box-shadow:0 8px 30px rgba(0,0,0,.6);color:#d8e6f5;font-size:14px;line-height:1.6}
+#nxOnboard h3{margin:0 0 6px;font-size:15px;color:#7fd4ff;letter-spacing:.04em}
+#nxOnboard ol{margin:0;padding-left:1.3em}
+#nxOnboard li{margin:2px 0}
+#nxOnboard .nxob-btn{display:inline-block;margin-top:8px;padding:8px 14px;border-radius:8px;border:1px solid #7fd4ff;color:#02050d;background:#7fd4ff;font-weight:600;text-decoration:none;font-size:14px}
+#nxOnboard button.nxob-btn{background:transparent;color:#7fd4ff;margin-left:8px}
