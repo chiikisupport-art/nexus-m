@@ -20,3 +20,5 @@ header{flex-wrap:wrap;gap:8px}.status-row{gap:6px}.main,.app.task-hidden .main{d
 /* 全画面：画面の端（時計の帯・下の隙間）まで背景を広げる */
 html,body{background:#02050d!important;min-height:100dvh}
 @media (display-mode: standalone){html,body{height:100dvh;overscroll-behavior:none}}
+#nxOnboard .nxob-app{margin:0 0 8px;padding:8px 10px 8px 1.6em;border-radius:8px;background:rgba(127,212,255,.08);color:#bfe6ff}
+#nxOnboard button.nxob-btn[data-copyset]{margin-left:0;display:block}
