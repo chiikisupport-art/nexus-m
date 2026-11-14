@@ -7,3 +7,6 @@ header{flex-wrap:wrap;gap:8px}.status-row{gap:6px}.main,.app.task-hidden .main{d
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
 #recordingBtn{font-size:10px!important;padding:4px 6px!important;flex:none!important;max-width:100px!important;letter-spacing:0!important;visibility:visible!important;opacity:1!important}.composer{flex-wrap:wrap!important}#typingStatus{flex-basis:calc(100% - 70px)!important}#recordingBtn{order:4!important}
+/* iPhone は動画が流れ始めるまで描かないので、そのあいだ光の層だけがオレンジの四角に見える → 流れ始めてから核を出す */
+#nxCore2{opacity:0;transition:opacity .4s}
+#nxCore2.nx-playing{opacity:1}
