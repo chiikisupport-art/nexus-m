@@ -35,3 +35,11 @@ html,body{background:#02050d!important;min-height:100dvh}
 .holo.speaking .ring{box-shadow:none!important}
 @keyframes nxMobReply{0%,100%{transform:scale(1.0)}50%{transform:scale(1.03)}}
 @keyframes nxMobPulse{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.06);opacity:1}}
+/* 並び（2026-11-15 会長）：送信は入力欄の右・VOICE OUT は小さく右下・DETAILS はスマホでは出さない */
+#detailBox{display:none!important}
+.composer{flex-wrap:nowrap!important;align-items:center!important;gap:6px!important}
+#typingStatus{flex:1 1 auto!important;flex-basis:auto!important;min-width:0!important}
+.composer>.tool-btn:not(#recordingBtn):not(#micBtn){order:3!important;flex:none!important;min-width:56px!important;padding:0 10px!important}
+#recordingBtn{position:fixed!important;right:10px!important;bottom:calc(env(safe-area-inset-bottom,0px) + 6px)!important;left:auto!important;top:auto!important;order:9!important;z-index:30!important;font-size:9px!important;padding:3px 7px!important;min-height:0!important;height:auto!important;border-radius:999px!important;box-shadow:none!important;opacity:.85!important;max-width:none!important}
+#nxEdition{position:fixed!important;left:12px!important;bottom:calc(env(safe-area-inset-bottom,0px) + 8px)!important;font-size:9px!important;opacity:.6!important}
+.app{padding-bottom:calc(max(12px,env(safe-area-inset-bottom)) + 24px)!important}
