@@ -40,6 +40,9 @@ html,body{background:#02050d!important;min-height:100dvh}
 .composer{flex-wrap:nowrap!important;align-items:center!important;gap:6px!important}
 #typingStatus{flex:1 1 auto!important;flex-basis:auto!important;min-width:0!important}
 .composer>.tool-btn:not(#recordingBtn):not(#micBtn){order:3!important;flex:none!important;min-width:56px!important;padding:0 10px!important}
-#recordingBtn{position:fixed!important;right:10px!important;bottom:calc(env(safe-area-inset-bottom,0px) + 6px)!important;left:auto!important;top:auto!important;order:9!important;z-index:30!important;font-size:9px!important;padding:3px 7px!important;min-height:0!important;height:auto!important;border-radius:999px!important;box-shadow:none!important;opacity:.85!important;max-width:none!important}
-#nxEdition{position:fixed!important;left:12px!important;bottom:calc(env(safe-area-inset-bottom,0px) + 8px)!important;font-size:9px!important;opacity:.6!important}
-.app{padding-bottom:calc(max(12px,env(safe-area-inset-bottom)) + 24px)!important}
+#recordingBtn{position:static!important;order:9!important;font-size:9px!important;padding:3px 7px!important;min-height:0!important;height:auto!important;border-radius:999px!important;box-shadow:none!important;opacity:.85!important;max-width:none!important}
+#nxEdition{position:static!important;font-size:9px!important;opacity:.6!important}
+
+
+/* 入力欄の下の一行：左に版、右に VOICE OUT（隅に貼らない。ホーム画面のアプリでも重ならない） */
+#nxFoot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;min-height:20px}
