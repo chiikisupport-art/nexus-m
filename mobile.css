@@ -46,3 +46,6 @@ html,body{background:#02050d!important;min-height:100dvh}
 
 /* 入力欄の下の一行：左に版、右に VOICE OUT（隅に貼らない。ホーム画面のアプリでも重ならない） */
 #nxFoot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;min-height:20px}
+/* 左上の彗星：スマホでは控えめに（明るさ・大きさを落とす）。案内が出ている間は消す（2026-11-15 会長「明るすぎる・邪魔」） */
+.nexus-comet-v141{opacity:.32!important;scale:.65;transform-origin:0 0;filter:none!important}
+body:has(#nxOnboard) .nexus-comet-v141{display:none!important}
