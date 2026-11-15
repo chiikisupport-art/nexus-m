@@ -51,3 +51,5 @@ html,body{background:#02050d!important;min-height:100dvh}
 body:has(#nxOnboard) .nexus-comet-v141{display:none!important}
 /* PC 向けの「英語の表示に日本語の説明」（#nexusTip）はスマホでは出さない（2026-11-15 会長「カーソルの説明が消えない」） */
 #nexusTip{display:none!important}
+/* 画面の飾りを軽く：光の粒の描画（canvas）・小さな星・流れ星は iPhone の画面の記憶を使うので出さない。核と彗星（控えめ）は残す（2026-11-15 会長「少し往復したら落ちる」） */
+#particles,.nexus-subtle-starfield,.nexus-shooting-star-layer,.nexus-shooting-star,.nexus-chat-balance-stars,.nexus-laser-stars-safe,.subtle-star{display:none!important}
