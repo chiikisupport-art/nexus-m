@@ -24,7 +24,7 @@ html,body{background:#02050d!important;min-height:100dvh}
 #nxOnboard button.nxob-btn[data-copyset]{margin-left:0;display:block}
 /* 入力欄を見えるように（枠と案内の文字）。2026-11-15 会長「アプリだと受け付けない」＝欄が見えず貼れなかった */
 #typingStatus{border:1px solid rgba(127,212,255,.55)!important;border-radius:10px!important;background:rgba(10,24,44,.9)!important;padding:10px 12px!important;color:#e8f2ff!important}
-#typingStatus:empty::before{content:"ここを押して入力（長押しで貼り付け）";color:rgba(200,225,255,.55);pointer-events:none}
+
 #nxOnboard .nxob-paste{display:block;width:100%;margin:4px 0 10px;padding:12px;border-radius:10px;border:0;background:#7fd4ff;color:#02050d;font-weight:700;font-size:15px}
 /* 入力欄：文字が枠の真ん中に来るように（高さ・余白・行の高さをそろえる） */
 #typingStatus{display:block!important;box-sizing:border-box!important;min-height:46px!important;max-height:120px!important;line-height:24px!important;padding:10px 14px!important;font-size:17px!important;margin:0!important;align-self:center!important;text-align:left!important;vertical-align:middle!important}
