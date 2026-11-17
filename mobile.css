@@ -53,3 +53,9 @@ body:has(#nxOnboard) .nexus-comet-v141{display:none!important}
 #nexusTip{display:none!important}
 /* 画面の飾りを軽く：光の粒の描画（canvas）・小さな星・流れ星は iPhone の画面の記憶を使うので出さない。核と彗星（控えめ）は残す（2026-11-15 会長「少し往復したら落ちる」） */
 #particles,.nexus-subtle-starfield,.nexus-shooting-star-layer,.nexus-shooting-star,.nexus-chat-balance-stars,.nexus-laser-stars-safe,.subtle-star{display:none!important}
+
+#nxOnboard .nxob-short{margin:4px 0 8px;font-size:15px;line-height:1.5;color:#e6f6ff}
+#nxOnboard a.nxob-big{display:block;text-align:center;margin:6px 0;padding:14px;font-size:16px;border-radius:10px}
+#nxOnboard .nxob-paste.nxob-dim{opacity:.55}
+#nxOnboard .nxob-more{margin:6px 0;color:#bfe6ff;font-size:13px}
+#nxOnboard .nxob-more summary{cursor:pointer;color:#7fd4ff}
