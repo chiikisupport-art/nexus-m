@@ -1,0 +1,61 @@
+
+html,body{min-height:100%;height:auto;overflow-x:hidden!important;overflow-y:auto!important}
+.app{display:flex!important;flex-direction:column!important;min-height:100dvh!important;padding: max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))!important;gap:10px!important}
+header{flex-wrap:wrap;gap:8px}.status-row{gap:6px}.main,.app.task-hidden .main{display:flex!important;flex-direction:column!important;align-items:stretch!important;padding:0!important;gap:8px!important;flex:1}
+.holo-wrap{position:relative!important;min-height:220px!important;height:30dvh!important;max-height:320px!important;flex:none!important;width:100%!important;inset:auto!important}.holo{width:min(62vw,270px)!important;height:auto!important;margin:auto!important;inset:auto!important}.console{position:relative!important;width:100%!important;min-width:0!important;height:auto!important;min-height:190px!important;flex:1!important;inset:auto!important;transform:none!important}.log{height:26dvh!important;min-height:150px!important;max-height:45dvh!important;overflow:auto!important;overflow-wrap:anywhere}
+.task-panel,#taskRestore,#taskToggle,#kanaBtn{display:none!important}.input-area{position:relative!important;inset:auto!important;width:100%!important;transform:none!important;margin:0!important}.composer{width:100%!important;display:flex!important;gap:8px!important}.typing-status{position:relative!important;flex:1!important;min-width:0!important;min-height:44px!important;max-height:120px!important;overflow:auto!important;font-size:16px!important}#command{display:none!important}.tool-btn,.quick button,.pill{min-height:44px}#recordingBtn{position:static!important;inset:auto!important;transform:none!important}.quick{display:flex!important;flex-wrap:wrap!important;gap:6px!important}.console-head{flex-wrap:wrap}dialog,[role=dialog]{max-width:calc(100vw - 24px)!important;max-height:85dvh!important;overflow:auto!important}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+#recordingBtn{font-size:10px!important;padding:4px 6px!important;flex:none!important;max-width:100px!important;letter-spacing:0!important;visibility:visible!important;opacity:1!important}.composer{flex-wrap:wrap!important}#typingStatus{flex-basis:calc(100% - 70px)!important}#recordingBtn{order:4!important}
+/* iPhone は動画が流れ始めるまで描かないので、そのあいだ光の層だけがオレンジの四角に見える → 流れ始めてから核を出す */
+#nxCore2{opacity:0;transition:opacity .4s}
+#nxCore2.nx-playing{opacity:1}
+/* 初めての導入案内（onboard.js） */
+#nxOnboard{position:fixed;z-index:60;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);max-height:66vh;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px 14px;border:1px solid rgba(120,200,255,.45);border-radius:12px;background:#050c1a;box-shadow:0 8px 30px rgba(0,0,0,.6);color:#d8e6f5;font-size:14px;line-height:1.6}
+#nxOnboard h3{margin:0 0 6px;font-size:15px;color:#7fd4ff;letter-spacing:.04em}
+#nxOnboard ol{margin:0;padding-left:1.3em}
+#nxOnboard li{margin:2px 0}
+#nxOnboard .nxob-btn{display:inline-block;margin-top:8px;padding:8px 14px;border-radius:8px;border:1px solid #7fd4ff;color:#02050d;background:#7fd4ff;font-weight:600;text-decoration:none;font-size:14px}
+#nxOnboard button.nxob-btn{background:transparent;color:#7fd4ff;margin-left:8px}
+/* 全画面：画面の端（時計の帯・下の隙間）まで背景を広げる */
+html,body{background:#02050d!important;min-height:100dvh}
+@media (display-mode: standalone){html,body{height:100dvh;overscroll-behavior:none}}
+#nxOnboard .nxob-app{margin:0 0 8px;padding:8px 10px 8px 1.6em;border-radius:8px;background:rgba(127,212,255,.08);color:#bfe6ff}
+#nxOnboard button.nxob-btn[data-copyset]{margin-left:0;display:block}
+/* 入力欄を見えるように（枠と案内の文字）。2026-11-15 会長「アプリだと受け付けない」＝欄が見えず貼れなかった */
+#typingStatus{border:1px solid rgba(127,212,255,.55)!important;border-radius:10px!important;background:rgba(10,24,44,.9)!important;padding:10px 12px!important;color:#e8f2ff!important}
+
+#nxOnboard .nxob-paste{display:block;width:100%;margin:4px 0 10px;padding:12px;border-radius:10px;border:0;background:#7fd4ff;color:#02050d;font-weight:700;font-size:15px}
+/* 入力欄：文字が枠の真ん中に来るように（高さ・余白・行の高さをそろえる） */
+#typingStatus{display:block!important;box-sizing:border-box!important;min-height:46px!important;max-height:120px!important;line-height:24px!important;padding:10px 14px!important;font-size:17px!important;margin:0!important;align-self:center!important;text-align:left!important;vertical-align:middle!important}
+.composer{align-items:center!important}
+/* 話している間のカクつき：核ぜんたいの大きなぼかしの光（filter）と、影を動かす光り方は iPhone に重い → 形を少し動かすだけにする（2026-11-15 会長） */
+.holo.speaking{filter:none!important;animation:nxMobReply 1.1s ease-in-out infinite!important;will-change:transform}
+.holo.speaking .orb{animation:nxMobPulse .9s ease-in-out infinite!important;will-change:transform,opacity}
+.holo.speaking .ring{box-shadow:none!important}
+@keyframes nxMobReply{0%,100%{transform:scale(1.0)}50%{transform:scale(1.03)}}
+@keyframes nxMobPulse{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.06);opacity:1}}
+/* 並び（2026-11-15 会長）：送信は入力欄の右・VOICE OUT は小さく右下・DETAILS はスマホでは出さない */
+#detailBox{display:none!important}
+.composer{flex-wrap:nowrap!important;align-items:center!important;gap:6px!important}
+#typingStatus{flex:1 1 auto!important;flex-basis:auto!important;min-width:0!important}
+.composer>.tool-btn:not(#recordingBtn):not(#micBtn){order:3!important;flex:none!important;min-width:56px!important;padding:0 10px!important}
+#recordingBtn{position:static!important;order:9!important;font-size:9px!important;padding:3px 7px!important;min-height:0!important;height:auto!important;border-radius:999px!important;box-shadow:none!important;opacity:.85!important;max-width:none!important}
+#nxEdition{position:static!important;font-size:9px!important;opacity:.6!important}
+
+
+/* 入力欄の下の一行：左に版、右に VOICE OUT（隅に貼らない。ホーム画面のアプリでも重ならない） */
+#nxFoot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;min-height:20px}
+/* 左上の彗星：スマホでは控えめに（明るさ・大きさを落とす）。案内が出ている間は消す（2026-11-15 会長「明るすぎる・邪魔」） */
+.nexus-comet-v141{opacity:.32!important;scale:.65;transform-origin:0 0;filter:none!important}
+body:has(#nxOnboard) .nexus-comet-v141{display:none!important}
+/* PC 向けの「英語の表示に日本語の説明」（#nexusTip）はスマホでは出さない（2026-11-15 会長「カーソルの説明が消えない」） */
+#nexusTip{display:none!important}
+/* 画面の飾りを軽く：光の粒の描画（canvas）・小さな星・流れ星は iPhone の画面の記憶を使うので出さない。核と彗星（控えめ）は残す（2026-11-15 会長「少し往復したら落ちる」） */
+#particles,.nexus-subtle-starfield,.nexus-shooting-star-layer,.nexus-shooting-star,.nexus-chat-balance-stars,.nexus-laser-stars-safe,.subtle-star{display:none!important}
+
+#nxOnboard .nxob-short{margin:4px 0 8px;font-size:15px;line-height:1.5;color:#e6f6ff}
+#nxOnboard a.nxob-big{display:block;text-align:center;margin:6px 0;padding:14px;font-size:16px;border-radius:10px}
+#nxOnboard .nxob-paste.nxob-dim{opacity:.55}
+#nxOnboard .nxob-more{margin:6px 0;color:#bfe6ff;font-size:13px}
+#nxOnboard .nxob-more summary{cursor:pointer;color:#7fd4ff}
