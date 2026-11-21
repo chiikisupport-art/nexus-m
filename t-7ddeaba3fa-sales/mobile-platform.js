@@ -10,7 +10,7 @@ try{if(/ Line\//i.test(navigator.userAgent)&&!/openExternalBrowser=1/.test(locat
 
 window.__NEXUS_APP__=false;
 window.NexusMobile=(()=>{
- const pcMessage='スマホ版ではできません。PC 版でできます';
+ const pcMessage='それはこのスマホ版ではできません。';
  const tools=new Set(['search_answer','ask_expert','add_memo','add_todo','remember','set_timer','set_reminder']);
  const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
  const publicKey='r4L5fDGqcKdh0u0/k/eVlbrG83hFhZoW1JQW/oBbNOM=';

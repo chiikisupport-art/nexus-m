@@ -21,7 +21,7 @@ window.NexusUpdateNote = (storeKey, version, note, addMessage) => {
   addMessage('nexus', message, { noHistory: true }).style.fontSize = '0.85em';
 };
 </script>
-<meta name="nexus-build" content="25d5b3be8b">
+<meta name="nexus-build" content="c6073d7f69">
 <style>.nx-pre body>*:not(#nexusBoot):not(#nxVeil){visibility:hidden!important}.nx-pre,.nx-pre body{background:#01030a!important}</style><script>window.__nxBootHold = true; document.documentElement.classList.add("nx-pre")</script>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#01030a">
 <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="black-750x1334.png">
@@ -34,7 +34,7 @@ window.NexusUpdateNote = (storeKey, version, note, addMessage) => {
 <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="black-1290x2796.png">
 <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="black-1206x2622.png">
 <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="black-1320x2868.png">
-<link rel="apple-touch-startup-image" media="(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="black-1080x2340.png"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180.png"><script src="mobile-platform.js?v=25d5b3be8b"></script><script src="onboard.js?v=25d5b3be8b"></script>
+<link rel="apple-touch-startup-image" media="(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="black-1080x2340.png"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180.png"><script src="mobile-platform.js?v=c6073d7f69"></script><script src="onboard.js?v=c6073d7f69"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="NEXUS"><meta name="mobile-web-app-capable" content="yes">
   <title>NEXUS</title>
@@ -4961,7 +4961,7 @@ Object.defineProperty(window,"MOZC_DICT",{configurable:true,get(){let v={};try{v
       "■ 検索・起動：猫を検索／YouTubeで音楽／YouTubeを開いて／東京駅の地図",
       "■ 換算：10kmは何マイル／30度は華氏／5インチ",
       "■ 遊び：サイコロ／コイン／1から100で数字／じゃんけん グー／ジョーク",
-      "■ AI（Groq・Gemini）：「鍵を作る」で接続（鍵をコピーすれば自動で受け取ります）／読み方：〇〇＝△△／AI診断／ふつうの言葉で「メモ帳を開いて」「音量を下げて」など",
+      "■ AI（Groq・Gemini）：「鍵を作る」で接続（鍵をコピーすれば自動で受け取ります）／読み方：〇〇＝△△／AI診断",
       "■ 近道：同じ言い方で2回頼んだ操作（アプリを開く・音量・曲・明るさなど）は覚えて、次から AI に聞かずにすぐ実行／覚えた近道／近道を忘れて",
       "■ パソコン：画面を読んで／コピーしたのを要約して／〇〇のファイルを探して／スクショ撮って／デスクトップを出して／明るくして・暗くして",
       "■ 困ったとき：診断／声が出ない／マイクの感度を下げて（雑音を拾うとき）／マイクの感度を上げて／このアプリについて",
@@ -5182,7 +5182,7 @@ Object.defineProperty(window,"MOZC_DICT",{configurable:true,get(){let v={};try{v
           const bn = NexusAI.backupName && NexusAI.backupName(keyText);
           if (bn) return R(`${bn} の鍵を預かりました（${model}）。主役の AI はそのままで、上限になったら自動で ${bn} に回します。「AI の状態」で、今どの口で話しているかが分かります。`, "SYSTEM", "AI_SETUP");
           window.dispatchEvent(new CustomEvent("nexus-ai-changed", { detail: "" }));
-          return R(`鍵を確認しました。${NexusAI.provName()} との接続が完了しています。これでPC操作も含めてお任せください。「メモ帳を開いて」「音量を下げて」「明日の9時に会議をリマインド」など、ふつうの言葉でどうぞ。`, "SYSTEM", "AI_SETUP");
+          return R(`鍵を確認しました。${NexusAI.provName()} との接続が完了しています。話しかけるか、文字で打ってください。「〇〇を調べて」「明日の天気は？」など、ふつうの言葉でどうぞ。`, "SYSTEM", "AI_SETUP");
         } catch (e) { return R(`その鍵では接続できませんでした（${e.message || e}）。鍵をもう一度コピーして貼り付けてください。`, "SYSTEM", "AI_SETUP"); }
       }
       // どの AI でも：鍵を保存した AI に切り替える／一覧を見る
@@ -5808,7 +5808,7 @@ Object.defineProperty(window,"MOZC_DICT",{configurable:true,get(){let v={};try{v
       const wantsAction = /(開|起動|閉じ|音量|再生|次の曲|前の曲|一時停止|ミュート|ロック|リマインド|知らせ|タイマー|メモ|タスク|覚えて|忘れて|検索|YouTube|ユーチューブ|フォルダ|完了|消して|設定|アプリ|画面|コピー|クリップボード|ファイル|探して|スクショ|スクリーンショット|デスクトップ|明るく|暗く|明るさ|輝度)/i.test(lastUser ? lastUser.text : "");   // 版195：Windows の機能の言葉も
       // 版130：ふつうの質問にも「検索つきの答え」だけは渡す（新しい情報は、その場で調べて答える）
       const tools = AGENT_TOOLS.filter(t => NexusMobile.tools.has(t.function.name));
-      messages[0].content += "\nスマホ版です。PC操作・アプリ起動・音量・ファイル・画面の読み取り・作業係は使えません。頼まれたら「スマホ版ではできません。PC 版でできます」と答えてください。";
+      messages[0].content += "\nスマホ版です。PC操作・アプリ起動・音量・ファイル・画面の読み取り・作業係は使えません。頼まれたら「それはこのスマホ版ではできません」とだけ答えてください。PC 版の宣伝はしないでください。";
       r.streamable = !wantsAction;   // 普通の質問だけ、届いた文から読み上げる
       if (!wantsAction) messages[0].content += "\n\n経済・社会・人物・値段・ニュース・選挙・天気・株価・最新の製品など、現実の事実が大事な質問は、search_answer で調べてから答え、「〜によると」と出どころを一言添えてください。「確認してまいります」「調べます」と言って終わらせてはいけません。雑談や意見を聞かれたときは、道具を使わずにすぐ答えてください。";
       if (!wantsAction) messages[0].content += "\n\n普段は2〜4文、合わせて120字ほどで、結論から、具体的に答えてください。最初の一文は10字ほどの短い言葉にして、すぐ話し始められるようにしてください（例：「3776メートルです。」）。";
@@ -8893,7 +8893,7 @@ html.nx-core2 #holo > .scan{display:none !important}
 })();
 </script>
 <!-- NEXUS-CORE2:END -->
-<link rel="stylesheet" href="mobile.css?v=25d5b3be8b"><script>if("serviceWorker" in navigator && location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(()=>{});</script><style id="nx-no-page-scroll">html,body{height:100%!important;overflow:hidden!important;overscroll-behavior:none!important}</style><script id="nx-a2hs-script">(function () {
+<link rel="stylesheet" href="mobile.css?v=c6073d7f69"><script>if("serviceWorker" in navigator && location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(()=>{});</script><style id="nx-no-page-scroll">html,body{height:100%!important;overflow:hidden!important;overscroll-behavior:none!important}</style><script id="nx-a2hs-script">(function () {
   'use strict';
 
   const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
