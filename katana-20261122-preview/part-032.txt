@@ -1,0 +1,1034 @@
+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';
+  sword.before(ornament);
+})();
+</script>
+
+<style>
+body::before {
+  background:
+    radial-gradient(ellipse at 50% 46%, transparent 12%, #190c27a8 80%),
+    linear-gradient(180deg, #10071788, transparent 39%, #29102565 77%, #1608118f);
+}
+#bladeTitle .muramasa-title {
+  color: #ffd0dc;
+  text-shadow: 0 0 10px #d7286e90, 0 2px 3px #160815;
+}
+#bladeCenter {
+  --aura-opacity: .56;
+  --aura-speed: 10s;
+}
+#bladeCenter:has([data-phase="listening"]) { --aura-opacity: .71; --aura-speed: 7s; }
+#bladeCenter:has([data-phase="thinking"]) { --aura-opacity: .82; --aura-speed: 5.5s; }
+#bladeCenter:has([data-phase="responding"], [data-phase="speaking"]) {
+  --aura-opacity: .96;
+  --aura-speed: 4s;
+}
+#bladeCenter::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+  top: 22%;
+  left: 0;
+  width: clamp(180px, 26vw, 420px);
+  height: 80%;
+  background:
+    radial-gradient(ellipse at 52% 82%, #8d174979, transparent 45%),
+    radial-gradient(ellipse at 45% 53%, #6b2c9d83, transparent 53%),
+    radial-gradient(ellipse at 64% 27%, #5b1a5d60, transparent 57%);
+  filter: blur(13px);
+  animation: muramasa-aura var(--aura-speed) ease-in-out infinite;
+}
+@keyframes muramasa-aura {
+  0%, 100% { transform: translate(-53%, 1%) skewX(-7deg) scale(.92); opacity: calc(var(--aura-opacity) * .65); }
+  50% { transform: translate(-47%, -2%) skewX(6deg) scale(1.08); opacity: var(--aura-opacity); }
+}
+#bladeCenter #bladeSword {
+  filter: drop-shadow(0 0 5px #a646b780);
+}
+#bladeCenter[data-speaking="true"] #bladeSword {
+  filter: drop-shadow(0 0 9px #ff86b0) drop-shadow(0 0 24px #a52365bf);
+}
+#bladeCenter .muramasa-blade-light {
+  background-image: linear-gradient(0deg, transparent 37%, #a42469 46%, #ffd2e0 50%, #ac4ab6 54%, transparent 65%);
+  opacity: .47;
+}
+#bladeCenter:has([data-phase="responding"]) .muramasa-blade-light,
+#bladeCenter:has([data-phase="speaking"]) .muramasa-blade-light { opacity: .92; }
+#bladeCenter #bladeSpiral path {
+  stroke: #cb80b6;
+  filter: drop-shadow(0 0 4px #a03d8b);
+}
+#bladeCenter .nexus-motion::before {
+  background: radial-gradient(ellipse, #c65b9d80, transparent 70%);
+}
+#bladeCenter .nexus-motion::after {
+  border-top-color: #ca82b7;
+  border-bottom-color: #9c4b867d;
+}
+#bladeCenter .muramasa-tassel {
+  filter: drop-shadow(0 0 6px #a15bad85);
+}
+@media (prefers-reduced-motion: reduce) {
+  #bladeCenter::before {
+    animation: none;
+    transform: translateX(-50%);
+    opacity: var(--aura-opacity);
+  }
+}
+
+</style>
+
+<style>
+.blade-sakura {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+.blade-speaking-petals {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .45s ease-out, visibility 0s linear .45s;
+}
+body:has(#bladeCenter[data-speaking="true"]) .blade-speaking-petals {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity .7s ease-in, visibility 0s;
+}
+.blade-petal {
+  position: absolute;
+  top: var(--start-height);
+  left: -20px;
+  width: var(--size);
+  height: calc(var(--size) * .74);
+  opacity: 0;
+  perspective: 64px;
+  animation: blade-petal-fall var(--duration) linear var(--delay) infinite;
+}
+.blade-petal::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at 33% 25%, #ffe1ef, #dd8bb4 58%, #8b315f);
+  clip-path: polygon(0 50%, 14% 21%, 44% 0, 71% 6%, 95% 25%, 84% 45%, 100% 53%, 88% 77%, 62% 97%, 33% 90%, 11% 73%);
+  animation: blade-petal-tumble var(--tumble) ease-in-out var(--delay) infinite alternate;
+}
+body:not(:has(#bladeCenter[data-speaking="true"])) .blade-speaking-petals .blade-petal,
+body:not(:has(#bladeCenter[data-speaking="true"])) .blade-speaking-petals .blade-petal::before {
+  animation-play-state: paused;
+}
+@keyframes blade-petal-fall {
+  0% { opacity: 0; transform: translate3d(0, 0, 0); }
+  8%, 91% { opacity: var(--opacity); }
+  23% { transform: translate3d(22vw, calc(var(--drop) * .27), 0); }
+  44% { transform: translate3d(47vw, calc(var(--drop) * .19), 0); }
+  72% { transform: translate3d(80vw, calc(var(--drop) * .72), 0); }
+  100% { opacity: 0; transform: translate3d(calc(100vw + 42px), var(--drop), 0); }
+}
+@keyframes blade-petal-tumble {
+  from { transform: rotateX(-48deg) rotateZ(-27deg); }
+  to { transform: rotateX(56deg) rotateZ(83deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .blade-sakura { display: none; }
+}
+</style>
+<script>
+(() => {
+  const layer = document.createElement('div');
+  layer.className = 'blade-sakura';
+  layer.setAttribute('aria-hidden', 'true');
+  const speakingPetals = document.createElement('div');
+  speakingPetals.className = 'blade-speaking-petals';
+  const ambientCount = 20;
+  const speakingCount = 36;
+  for (let i = 0; i < ambientCount + speakingCount; i++) {
+    const added = i >= ambientCount;
+    const foreground = added && i % 4 === 0;
+    const petal = document.createElement('span');
+    petal.className = 'blade-petal';
+    petal.style.setProperty('--start-height', (3 + (i * 17) % 61) + 'vh');
+    petal.style.setProperty('--drop', 'min(' + (31 + (i * 11) % 22) + 'vw, 41vh)');
+    petal.style.setProperty('--size', (foreground ? 15 + i % 7 : 6 + (i * 7) % 8) + 'px');
+    petal.style.setProperty('--duration', (10 + (i * 3) % 7) + 's');
+    petal.style.setProperty('--delay', (-(i * 1.71) % 13) + 's');
+    petal.style.setProperty('--tumble', (1.7 + (i % 5) * .37) + 's');
+    petal.style.setProperty('--opacity', String(.46 + (i % 5) * .09));
+    (added ? speakingPetals : layer).append(petal);
+  }
+  layer.append(speakingPetals);
+  document.getElementById('bladeTheme').append(layer);
+})();
+</script>
+
+<style>
+body { isolation: isolate; }
+body:has(.blade-living-sakura) .app { z-index: auto; }
+.blade-living-sakura {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .blade-living-sakura { display: none; }
+}
+ .blade-painted-petal {
+  position: absolute;
+  top: var(--start-height);
+  left: -36px;
+  opacity: 0;
+  perspective: 120px;
+  animation: blade-petal-fall var(--duration) linear var(--delay) infinite;
+}
+.blade-painted-petal canvas {
+  display: block;
+  width: var(--petal-span);
+  height: auto;
+  max-width: none;
+  transform-origin: center;
+  animation: blade-painted-tumble var(--tumble) ease-in-out var(--delay) infinite alternate;
+}
+@keyframes blade-painted-tumble {
+  from { transform: rotateY(-42deg) rotateZ(-30deg); }
+  to { transform: rotateY(52deg) rotateZ(76deg); }
+}
+</style>
+<script>
+(() => {
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const background = getComputedStyle(document.body).backgroundImage;
+  const source = background.match(/url\("?(data:image\/[^")]+)"?\)/)?.[1];
+  if (!source) return;
+
+  // Centers and radii are measured against the original 2560 × 1440 image.
+  const branches = [
+    [480, 132, 570, 162, 8, 11],
+    [279, 330, 350, 164, 7, 9],
+    [644, 425, 290, 123, 13, 10],
+    [931, 205, 280, 133, 12, 11],
+    [234, 567, 123, 64, 4, 7],
+    [1977, 597, 120, 54, 4, 7],
+    [2483, 366, 152, 81, 5, 8],
+    [2399, 678, 75, 48, 4, 7]
+  ];
+  const loosePetals = [
+    [183, 321, 18, 15], [370, 507, 26, 24],
+    [824, 341, 24, 21], [871, 380, 23, 19], [959, 398, 17, 14],
+    [950, 490, 22, 19], [878, 501, 30, 24], [781, 515, 12, 16],
+    [715, 602, 42, 33, true], [268, 664, 27, 21],
+    [973, 662, 23, 17], [1020, 708, 23, 15],
+    [91, 978, 37, 29], [91, 1042, 37, 29],
+    [2520, 976, 48, 34], [2521, 1048, 47, 35]
+  ];
+  const bankVegetation = [
+    [397, 618, 26, 14, 1.2, .6],
+    [511, 744, 24, 13, 1.1, .6],
+    [644, 769, 30, 12, 1.3, .6],
+    [1927, 625, 34, 16, 1.2, .65],
+    [2338, 700, 31, 14, 1.1, .6]
+  ];
+  const regions = [...branches, ...bankVegetation];
+  const fragment = `
+    precision highp float;
+    uniform sampler2D uImage;
+    uniform vec4 uRegions[${regions.length}];
+    uniform vec2 uOffsets[${regions.length}];
+    uniform vec2 uCover;
+    uniform float uWaterTime;
+    uniform float uRedMoon;
+    uniform float uWind;
+    uniform vec2 uTipRippleOrigin;
+    uniform float uTipRippleAge;
+    varying vec2 vView;
+
+    float cascade(vec2 point, float x, float top, float bottom, float width, float lean) {
+      float column = x + (point.y - top) * lean;
+      return (1. - smoothstep(width * .52, width, abs(point.x - column)))
+        * smoothstep(top, top + 20., point.y)
+        * (1. - smoothstep(bottom - 49., bottom, point.y));
+    }
+
+    void main() {
+      vec2 original = vec2(.5 + (vView.x - .5) * uCover.x, vView.y * uCover.y);
+      vec2 position = original * vec2(2560., 1440.);
+      vec2 offset = vec2(0.);
+      for (int i = 0; i < ${regions.length}; i++) {
+        vec4 region = uRegions[i];
+        vec2 relative = (position - region.xy) / region.zw;
+        float weight = 1. - smoothstep(.19, 1., length(relative));
+        if (i >= ${branches.length}) weight *= 1. - smoothstep(-.1, .85, relative.y);
+        offset += weight * uOffsets[i];
+      }
+      // Keep the falls inside the water channels traced in the reference.
+      float falls = max(cascade(position, 2157., 491., 760., 32., -.074),
+                        .65 * cascade(position, 2170., 598., 770., 28., .065));
+      float stream = position.y * .049 - uWaterTime * 4.7 + position.x * .105;
+      float run = sin(stream) + .37 * sin(stream * 1.93 + 1.2);
+      offset.y += falls * (5.3 * run);
+      offset.x += falls * sin(stream * .72 + 1.1) * 1.15;
+
+      // Surface motion fades at the distant bank and around the foreground rocks.
+      float waterX = smoothstep(710., 910., position.x)
+        * (1. - smoothstep(2210., 2445., position.x));
+      float surface = waterX * smoothstep(810., 851., position.y)
+        * (1. - smoothstep(1168., 1210., position.y));
+      vec2 center = vec2(1360., 975.);
+      vec2 spread = (position - center) * vec2(.32, 1.15);
+      float rings = length(spread) * .064 - uWaterTime * 2.3;
+      float wideWave = sin(position.y * .075 + position.x * .012 - uWaterTime * 1.8);
+      float nearReflection = 1. - smoothstep(105., 530., abs(position.x - center.x));
+      float swell = 1. + .28 * uWind;
+      offset.x += swell * surface * (3.4 * wideWave + 2.8 * nearReflection * sin(rings));
+      offset.y += swell * surface * (1.85 * sin(rings + .5) + 1.2 * wideWave);
+
+      // Light surface ripples continue into the two sheltered sides of the lake.
+      float sideY = smoothstep(858., 901., position.y)
+        * (1. - smoothstep(1155., 1205., position.y));
+      float leftBank = 238. + 255. * (1. - smoothstep(855., 943., position.y));
+      float rightRock = (position.y - 901.) / 63.;
+      float rightBank = 2390. - 153. * exp(-rightRock * rightRock);
+      float leftWater = smoothstep(leftBank, leftBank + 100., position.x)
+        * (1. - smoothstep(705., 1180., position.x));
+      float rightWater = smoothstep(1600., 2050., position.x)
+        * (1. - smoothstep(rightBank - 110., rightBank, position.x));
+      float sideWater = sideY * max(leftWater, rightWater);
+      float sideWave = sin(position.y * .064 + position.x * .013 - uWaterTime * 1.46);
+      float crossWave = sin(position.y * .097 - position.x * .008 - uWaterTime * 1.15);
+      offset.x += swell * sideWater * (2.2 * sideWave + .75 * crossWave);
+      offset.y += swell * sideWater * (.85 * crossWave + .5 * sideWave);
+
+      float tipReflection = 0.;
+      if (uRedMoon > .001 && uTipRippleAge >= 0. && position.y > 817. && position.y < 1222.) {
+        vec2 projected = (position - uTipRippleOrigin) * vec2(1., 3.7);
+        float distanceToTip = length(projected);
+        if (distanceToTip < 1230.) {
+          float banks = smoothstep(leftBank + 8., leftBank + 112., position.x)
+            * (1. - smoothstep(rightBank - 105., rightBank - 4., position.x));
+          float water = banks * smoothstep(817., 851., position.y)
+            * (1. - smoothstep(1188., 1222., position.y)) * uRedMoon;
+          float bend = 0.;
+          for (int i = 0; i < 5; i++) {
+            float delay = uTipRippleAge - float(i) * .75;
+            if (delay >= 0.) {
+              float age = mod(delay, 3.75);
+              float radius = 18. + age * 320.;
+              float progress = (distanceToTip - radius) / (11. + age * 3.8);
+              float fade = smoothstep(0., .16, age) * (1. - smoothstep(2.48, 3.73, age));
+              float crest = exp(-progress * progress) * fade;
+              bend += sin(progress * 2.35) * crest;
+              tipReflection += crest * (.18 + .037 * cos(progress * 2.));
+            }
+          }
+          vec2 direction = projected / max(1., distanceToTip);
+          offset += vec2(20., 8.5) * direction * bend * water;
+          tipReflection *= water;
+        }
+      }
+
+      vec4 picture = texture2D(uImage, original - offset / vec2(2560., 1440.));
+
+      // Feather the cloud layers into the painted sky around the moon and tower.
+      float cloudBand = max(
+        (1. - smoothstep(.46, 1., length((position - vec2(1824., 380.)) / vec2(145., 59.)))),
+        (1. - smoothstep(.42, 1., length((position - vec2(2370., 277.)) / vec2(157., 60.)))));
+      cloudBand = max(cloudBand,
+        1. - smoothstep(.44, 1., length((position - vec2(1030., 531.)) / vec2(112., 32.))));
+      if (cloudBand > .001) {
+        // Two staggered passes keep the drift heading right through each loop.
+        float first = fract(uWaterTime / 44. + .5);
+        float second = fract(first + .5);
+        float blend = .5 - .5 * cos(first * 6.2831853);
+        vec3 firstPass = texture2D(uImage, original - vec2((first - .5) * 68. / 2560., 0.)).rgb;
+        vec3 secondPass = texture2D(uImage, original - vec2((second - .5) * 68. / 2560., 0.)).rgb;
+        picture.rgb = mix(picture.rgb, mix(secondPass, firstPass, blend), cloudBand);
+      }
+      picture.rgb += vec3(1., .76, .87) * tipReflection;
+      picture.rgb *= 1. + .11 * falls * run
+        + swell * (.033 * surface * nearReflection * sin(rings - .6)
+                   + .018 * sideWater * crossWave);
+      // Measure the full moon limb in the original image, including the tall lower arc.
+      if (uRedMoon > .001 && position.x > 1120. && position.x < 1690.
+          && position.y > 87. && position.y < 555.) {
+        vec2 moonPoint = (position - vec2(1402.2, 388.8)) / vec2(221.8, 247.2);
+        float distanceToMoon = sqrt(dot(moonPoint, moonPoint) + .0097 * moonPoint.x * moonPoint.y);
+        float ridge = 507. - .44 * (position.x - 1200.);
+        ridge += -0.0400000 * max(0., position.x - 1225.);
+        ridge += -0.2400000 * max(0., position.x - 1250.);
+        ridge += 0.1200000 * max(0., position.x - 1275.);
+        ridge += 0.2400000 * max(0., position.x - 1300.);
+        ridge += -0.2000000 * max(0., position.x - 1325.);
+        ridge += 0.2400000 * max(0., position.x - 1350.);
+        ridge += 0.1866667 * max(0., position.x - 1375.);
+        ridge += 0.2666667 * max(0., position.x - 1390.);
+        ridge += -0.1333333 * max(0., position.x - 1405.);
+        ridge += 0.6000000 * max(0., position.x - 1420.);
+        ridge += -0.0800000 * max(0., position.x - 1450.);
+        ridge += -0.0400000 * max(0., position.x - 1475.);
+        ridge += -0.1200000 * max(0., position.x - 1500.);
+        ridge += -0.0400000 * max(0., position.x - 1550.);
+        ridge += -0.0800000 * max(0., position.x - 1575.);
+        ridge += 0.0400000 * max(0., position.x - 1600.);
+        float aboveFuji = 1. - smoothstep(ridge - 2.5, ridge + 1.5, position.y);
+        float lunarDisc = (1. - smoothstep(.981, 1.017, distanceToMoon)) * aboveFuji;
+        float sourceLight = dot(picture.rgb, vec3(.2126, .7152, .0722));
+        vec3 mutedRose = vec3(.84, .48, .61) * (.62 + .38 * sourceLight);
+        picture.rgb = mix(picture.rgb, mutedRose, lunarDisc * uRedMoon * .75);
+
+        float halo = (1. - smoothstep(1.0, 1.16, distanceToMoon))
+          * smoothstep(.985, 1.025, distanceToMoon);
+        float mist = .65 + .22 * sin(moonPoint.y * 8.4 + moonPoint.x * 3.9 - uWaterTime * .37)
+          + .13 * sin(moonPoint.y * 15.1 - moonPoint.x * 2.3 + uWaterTime * .23);
+        picture.rgb += vec3(.10, .025, .066) * halo * mist * aboveFuji * uRedMoon;
+        float haze = smoothstep(.42, .93, mist) * lunarDisc * uRedMoon;
+        picture.rgb = mix(picture.rgb, vec3(.73, .52, .66), .21 * haze);
+
+        // Nearby clouds and the upper ridge catch a little of the same rose light.
+        float nearLimb = smoothstep(.98, 1.04, distanceToMoon)
+          * (1. - smoothstep(1.045, 1.19, distanceToMoon));
+        float ridgeLight = (1. - aboveFuji)
+          * (1. - smoothstep(4., 48., position.y - ridge))
+          * (1. - smoothstep(.87, 1.075, distanceToMoon));
+        float spill = max(nearLimb * aboveFuji * .72, ridgeLight)
+          * (1. - smoothstep(522., 553., position.y));
+        float litDetail = mix(.32, 1., smoothstep(.045, .42, sourceLight));
+        picture.rgb += vec3(.12, .031, .047) * spill * litDetail * uRedMoon;
+      }
+      if (uRedMoon > .001) {
+        // Soft red spill on the distant gate, strongest around its crossbar and feet.
+        if (position.x > 1320. && position.x < 1610. && position.y > 602. && position.y < 820.) {
+          float crossbar = (1. - smoothstep(65., 144., abs(position.x - 1466.)))
+            * (1. - smoothstep(9., 56., abs(position.y - 658.)));
+          float pillar = (1. - smoothstep(3., 28., min(abs(position.x - 1417.), abs(position.x - 1510.))))
+            * smoothstep(647., 684., position.y) * (1. - smoothstep(760., 811., position.y));
+          float ember = .86 + .14 * sin(uWaterTime * 1.68);
+          picture.rgb += vec3(.27, .086, .064) * max(crossbar * .73, pillar) * ember * uRedMoon;
+        }
+        if (position.x > 2040. && position.x < 2160. && position.y > 274. && position.y < 448.) {
+          // Reuse the existing lit window pixels, each tier with a different fire rhythm.
+          float floorMask = max(
+            1. - smoothstep(7., 19., abs(position.y - 297.)),
+            max(1. - smoothstep(8., 19., abs(position.y - 358.)),
+                1. - smoothstep(10., 22., abs(position.y - 426.))));
+          float windowPixel = smoothstep(.06, .36, picture.r - picture.b)
+            * smoothstep(.18, .52, picture.r);
+          float time = uWaterTime;
+          float fire = .64 + .24 * sin(time * 7.8 + position.x * .17 + position.y * .08)
+            + .12 * sin(time * 12.3 - position.x * .11 + position.y * .1);
+          picture.rgb += vec3(.55, .28, .072) * floorMask * windowPixel * fire * uRedMoon;
+        }
+      }
+      gl_FragColor = picture;
+    }`;
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'blade-living-sakura';
+  canvas.setAttribute('aria-hidden', 'true');
+  const gl = canvas.getContext('webgl', {alpha: false, antialias: false});
+  if (!gl) return;
+
+  function compile(type, code) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, code);
+    gl.compileShader(shader);
+    return gl.getShaderParameter(shader, gl.COMPILE_STATUS) ? shader : null;
+  }
+
+  const vertex = compile(gl.VERTEX_SHADER, `
+    attribute vec2 aPosition;
+    varying vec2 vView;
+    void main() {
+      vView = vec2(aPosition.x * .5 + .5, .5 - aPosition.y * .5);
+      gl_Position = vec4(aPosition, 0., 1.);
+    }`);
+  const pixels = compile(gl.FRAGMENT_SHADER, fragment);
+  if (!vertex || !pixels) return;
+  const program = gl.createProgram();
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, pixels);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+  gl.useProgram(program);
+
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const vertexPosition = gl.getAttribLocation(program, 'aPosition');
+  gl.enableVertexAttribArray(vertexPosition);
+  gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform4fv(gl.getUniformLocation(program, 'uRegions[0]'), new Float32Array(regions.flatMap(r => r.slice(0, 4))));
+  const cover = gl.getUniformLocation(program, 'uCover');
+  const waterTime = gl.getUniformLocation(program, 'uWaterTime');
+  const redMoon = gl.getUniformLocation(program, 'uRedMoon');
+  const windUniform = gl.getUniformLocation(program, 'uWind');
+  let petalAnimations = [];
+  let lastWindRate = 1;
+  const bladeCenter = document.getElementById('bladeCenter');
+  const tipRippleAge = gl.getUniformLocation(program, 'uTipRippleAge');
+  const tipRippleOrigin = gl.getUniformLocation(program, 'uTipRippleOrigin');
+  let rippleStartedAt = null;
+  const shift = gl.getUniformLocation(program, 'uOffsets[0]');
+  const offsets = new Float32Array(regions.length * 2);
+
+  function separatePetal(image, region) {
+    const [x, y, rx, ry, brightPetal] = region;
+    const left = Math.max(0, x - rx);
+    const top = Math.max(0, y - ry);
+    const width = Math.min(image.canvas.width - left, rx * 2 + 1);
+    const height = Math.min(image.canvas.height - top, ry * 2 + 1);
+    const area = width * height;
+    const original = image.getImageData(left, top, width, height);
+    const data = original.data;
+    const coverage = new Float32Array(area);
+    for (let i = 0; i < area; i++) {
+      const dx = (left + i % width - x) / rx;
+      const dy = (top + Math.floor(i / width) - y) / ry;
+      if (dx * dx + dy * dy > .87) continue;
+      const [r, g, b] = [data[i * 4], data[i * 4 + 1], data[i * 4 + 2]];
+      // The near-white petal under the title loses its pink contrast in the bright center.
+      const strength = brightPetal
+        ? (r - 94) / 76
+        : Math.min((r - g - 12) / 32, (r - b + 30) / 32, (r - 97) / 59);
+      coverage[i] = Math.max(0, Math.min(1, strength));
+    }
+
+    const seed = (y - top) * width + x - left;
+    if (coverage[seed] < .12) return null;
+    const component = new Uint8Array(area);
+    const queue = [seed];
+    component[seed] = 1;
+    function add(i) {
+      if (component[i] || coverage[i] < .10) return;
+      component[i] = 1;
+      queue.push(i);
+    }
+    for (let j = 0; j < queue.length; j++) {
+      const i = queue[j];
+      if (i % width > 0) add(i - 1);
+      if (i % width + 1 < width) add(i + 1);
+      if (i >= width) add(i - width);
+      if (i + width < area) add(i + width);
+    }
+    if (queue.length < 12) return null;
+
+    const sprite = document.createElement('canvas');
+    sprite.width = width;
+    sprite.height = height;
+    const pixels = sprite.getContext('2d');
+    const isolated = pixels.createImageData(width, height);
+    const cut = new Uint8Array(area);
+    for (const i of queue) {
+      const offset = i * 4;
+      isolated.data.set(data.subarray(offset, offset + 3), offset);
+      isolated.data[offset + 3] = Math.round(255 * Math.min(1, coverage[i] * 1.5));
+      const py = Math.floor(i / width);
+      const px = i % width;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          if (px + dx >= 0 && px + dx < width && py + dy >= 0 && py + dy < height) {
+            cut[i + dy * width + dx] = 1;
+          }
+        }
+      }
+    }
+    pixels.putImageData(isolated, 0, 0);
+
+    const clean = image.createImageData(width, height);
+    clean.data.set(data);
+    for (let row = 0; row < height; row++) {
+      for (let col = 0; col < width; col++) {
+        const i = row * width + col;
+        if (!cut[i]) continue;
+        let l = col, r = col, u = row, d = row;
+        while (l > 0 && cut[row * width + l]) l--;
+        while (r + 1 < width && cut[row * width + r]) r++;
+        while (u > 0 && cut[u * width + col]) u--;
+        while (d + 1 < height && cut[d * width + col]) d++;
+        const sources = [row * width + l, row * width + r, u * width + col, d * width + col];
+        const weights = [col - l, r - col, row - u, d - row].map((distance, index) =>
+          cut[sources[index]] ? 0 : 1 / Math.max(1, distance) ** 1.6);
+        const total = weights.reduce((sum, weight) => sum + weight, 0);
+        if (!total) continue;
+        for (let c = 0; c < 3; c++) {
+          clean.data[i * 4 + c] = sources.reduce((sum, source, index) =>
+            sum + weights[index] * data[source * 4 + c], 0) / total;
+        }
+      }
+    }
+    image.putImageData(clean, left, top);
+    return sprite;
+  }
+
+  function driftPetals(image) {
+    const layer = document.querySelector('.blade-sakura');
+    if (!layer) return;
+    const paint = document.createElement('canvas');
+    paint.width = image.naturalWidth;
+    paint.height = image.naturalHeight;
+    const context = paint.getContext('2d', {willReadFrequently: true});
+    context.drawImage(image, 0, 0);
+    for (const [i, position] of loosePetals.entries()) {
+      const sprite = separatePetal(context, position);
+      if (!sprite) continue;
+      const mover = document.createElement('span');
+      mover.className = 'blade-painted-petal';
+      mover.style.setProperty('--start-height', (4 + i * 17 % 52) + 'vh');
+      mover.style.setProperty('--drop', 'min(' + (34 + i * 9 % 17) + 'vw, 41vh)');
+      mover.style.setProperty('--duration', (10 + i * 3 % 7) + 's');
+      mover.style.setProperty('--delay', (-(i * 2.71 + 4) % 12) + 's');
+      mover.style.setProperty('--tumble', (2.1 + i % 6 * .34) + 's');
+      mover.style.setProperty('--opacity', String(.72 + i % 4 * .08));
+      sprite.style.setProperty('--petal-span', 'max(' + (sprite.width / 25.6).toFixed(3) + 'vw, ' + (sprite.width / 14.4).toFixed(3) + 'vh)');
+      mover.append(sprite);
+      layer.append(mover);
+    }
+    return paint;
+  }
+
+  const image = new Image();
+  let frame = 0;
+  let last = -Infinity;
+  function draw(now) {
+    frame = 0;
+    if (reduceMotion.matches || document.hidden || gl.isContextLost()) return;
+    if (now - last >= 40) {
+      last = now;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (w && h) {
+        const ratio = Math.min(1, 1200 / w, 850 / h);
+        const width = Math.round(w * ratio);
+        const height = Math.round(h * ratio);
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          gl.viewport(0, 0, width, height);
+        }
+        const scale = Math.max(w / image.width, h / image.height);
+        gl.uniform2f(cover, w / (scale * image.width), h / (scale * image.height));
+        const seconds = now / 1000;
+        // One gust envelope bends the vegetation, carries petals and lifts the water.
+        const voiceLight = Number(getComputedStyle(bladeCenter).getPropertyValue('--katana-voice-light'));
+        const gust = voiceLight * (.77 + .23 * Math.sin(seconds * 1.45));
+        const windRate = 1 + .83 * gust;
+        if (Math.abs(windRate - lastWindRate) >= .025 || (gust === 0 && lastWindRate !== 1)) {
+          for (const animation of petalAnimations) animation.updatePlaybackRate(windRate);
+          lastWindRate = windRate;
+        }
+        for (let i = 0; i < regions.length; i++) {
+          const phase = seconds * (.78 + i % 5 * .15) + i * 1.71;
+          const onBank = i >= branches.length;
+          const lean = gust * (onBank ? 8.5 : 8);
+          offsets[i * 2] = Math.sin(phase) * regions[i][4] * (1 + gust * .32) + lean;
+          offsets[i * 2 + 1] = Math.sin(phase + .8) * regions[i][5] * (1 + gust * .22);
+        }
+        gl.uniform2fv(shift, offsets);
+        gl.uniform1f(waterTime, seconds);
+        gl.uniform1f(windUniform, gust);
+        gl.uniform1f(redMoon, voiceLight);
+        if (bladeCenter.dataset.speaking === 'true') rippleStartedAt ??= now;
+        else if (voiceLight < .001) rippleStartedAt = null;
+        if (rippleStartedAt === null) {
+          gl.uniform1f(tipRippleAge, -1);
+        } else {
+          const blade = bladeCenter.getBoundingClientRect();
+          const tipX = blade.left - blade.height * .019;
+          const tipY = blade.top + blade.height * .9865;
+          const imageLeft = (w - image.width * scale) / 2;
+          gl.uniform2f(tipRippleOrigin, (tipX - imageLeft) / scale,
+            Math.min(1150, Math.max(851, tipY / scale)));
+          gl.uniform1f(tipRippleAge, (now - rippleStartedAt) / 1000);
+        }
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+    frame = requestAnimationFrame(draw);
+  }
+  function update() {
+    if (!frame && !reduceMotion.matches && !document.hidden) frame = requestAnimationFrame(draw);
+  }
+  image.addEventListener('load', () => {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, driftPetals(image) || image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    document.getElementById('bladeTheme').prepend(canvas);
+    function refreshPetalAnimations() {
+      petalAnimations = document.querySelector('.blade-sakura')?.getAnimations({subtree: true})
+        .filter(animation => ['blade-petal-fall', 'blade-petal-tumble', 'blade-painted-tumble'].includes(animation.animationName)) || [];
+      lastWindRate = 1;
+      update();
+    }
+    refreshPetalAnimations();
+    document.addEventListener('visibilitychange', update);
+    reduceMotion.addEventListener('change', refreshPetalAnimations);
+    canvas.addEventListener('webglcontextlost', () => {
+      for (const animation of petalAnimations) animation.updatePlaybackRate(1);
+      canvas.remove();
+    });
+    update();
+  }, {once: true});
+  image.src = source;
+})();
+</script>
+
+<style id="katana-chat-placement">
+@media (min-width: 701px) {
+  body .console {
+    left: 20% !important;
+    top: auto !important;
+    bottom: 15.5vh !important;
+    width: min(26vw, 440px) !important;
+    height: clamp(76px, 10vh, 112px) !important;
+    box-sizing: border-box !important;
+  }
+}
+</style>
+
+<style id="katana-fringe-motion">
+#bladeCenter .muramasa-tassel-rendered { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  #bladeCenter .muramasa-tassel-fringe { display: none; }
+  #bladeCenter .muramasa-tassel-rendered { visibility: visible; }
+}
+</style>
+<script>
+(() => {
+  const center = document.getElementById('bladeCenter');
+  const tassel = center.querySelector('img.muramasa-tassel');
+  if (!tassel) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'muramasa-tassel muramasa-tassel-fringe';
+  canvas.setAttribute('aria-hidden', 'true');
+  canvas.style.cssText = tassel.style.cssText;
+  const gl = canvas.getContext('webgl', { alpha: true, antialias: false });
+  if (!gl) return;
+
+  function makeShader(type, code) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, code);
+    gl.compileShader(shader);
+    return gl.getShaderParameter(shader, gl.COMPILE_STATUS) ? shader : null;
+  }
+
+  const vertex = makeShader(gl.VERTEX_SHADER, `
+    attribute vec2 aPosition;
+    varying vec2 vPoint;
+    void main() {
+      vPoint = vec2(aPosition.x * .5 + .5, .5 - aPosition.y * .5);
+      gl_Position = vec4(aPosition, 0., 1.);
+    }`);
+  const fragment = makeShader(gl.FRAGMENT_SHADER, `
+    precision mediump float;
+    uniform sampler2D uTassel;
+    uniform float uTime;
+    uniform float uGust;
+    varying vec2 vPoint;
+
+    void main() {
+      // Keep the cord and knot together. Neighboring bunches of silk
+      // lag the wind by different amounts, with the most give at the ends.
+      float fringe = smoothstep(.49, .93, vPoint.y);
+      float edge = smoothstep(0., .06, vPoint.x)
+        * (1. - smoothstep(.94, 1., vPoint.x));
+      float phase = vPoint.x * 21. + vPoint.y * 3.1;
+      float push = sin(uTime * 2.4 + phase) * .010
+        + sin(uTime * 1.65 - phase * .77) * .005;
+      push += uGust * (.101 + .028 * sin(uTime * 4.45 + phase));
+      float lift = sin(uTime * 2.1 + phase * .83) * .0045
+        - uGust * (.024 + .009 * sin(uTime * 3.65 + phase * .83));
+      gl_FragColor = texture2D(uTassel, vPoint - vec2(push, lift) * fringe * edge);
+    }`);
+  if (!vertex || !fragment) return;
+  const program = gl.createProgram();
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  let frame = 0;
+  let last = -Infinity;
+  let ready = false;
+  const time = gl.getUniformLocation(program, 'uTime');
+  const gust = gl.getUniformLocation(program, 'uGust');
+  function draw(now) {
+    frame = 0;
+    if (reduce.matches || document.hidden || window.__nxBootHold || gl.isContextLost()) return;
+    if (now - last >= 40) {
+      last = now;
+      const seconds = now / 1000;
+      const voiceLight = Number(getComputedStyle(center).getPropertyValue('--katana-voice-light'));
+      // Match the wind pulse that speeds up the falling petals.
+      gl.uniform1f(gust, voiceLight * (.77 + .23 * Math.sin(seconds * 1.45)));
+      gl.uniform1f(time, seconds);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    frame = requestAnimationFrame(draw);
+  }
+
+  function update() {
+    if (ready && !frame && !reduce.matches && !document.hidden && !window.__nxBootHold) {
+      frame = requestAnimationFrame(draw);
+    }
+  }
+
+  function mount() {
+    if (!tassel.naturalWidth || gl.isContextLost()) return;
+    canvas.height = 360;
+    canvas.width = Math.round(canvas.height * tassel.naturalWidth / tassel.naturalHeight);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(program);
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    const position = gl.getAttribLocation(program, 'aPosition');
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tassel);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.uniform1f(time, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    tassel.after(canvas);
+    tassel.classList.add('muramasa-tassel-rendered');
+    ready = true;
+    update();
+  }
+
+  canvas.addEventListener('webglcontextlost', () => {
+    ready = false;
+    canvas.remove();
+    tassel.classList.remove('muramasa-tassel-rendered');
+  });
+  document.addEventListener('visibilitychange', update);
+  reduce.addEventListener('change', update);
+  window.addEventListener('nx-boot-ready', update, { once: true });
+  if (tassel.complete) mount();
+  else tassel.addEventListener('load', mount, { once: true });
+})();
+</script>
+
+<style id="katana-speaking-tip-light">
+#bladeCenter .katana-blade-threads {
+  position: absolute;
+  top: 27%;
+  left: -49px;
+  width: 98px;
+  height: 72%;
+  opacity: var(--katana-voice-light);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+@media (max-width: 700px) {
+  #bladeCenter .katana-blade-threads { left: -35px; width: 70px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #bladeCenter .katana-blade-threads { display: none; }
+}
+</style>
+<script>
+(() => {
+  const center = document.getElementById('bladeCenter');
+  if (!center) return;
+  const threads = document.createElement('canvas');
+  threads.className = 'katana-blade-threads';
+  threads.setAttribute('aria-hidden', 'true');
+  threads.width = 128;
+  threads.height = 600;
+  center.append(threads);
+  const ctx = threads.getContext('2d');
+  if (!ctx) return;
+  const {width, height} = threads;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const strands = [
+    {side: -1, phase: 1.35, color: '126,173,245', highlight: '186,220,255', width: 3.6, intensity: .32, speed: 1.17},
+    {side: 1, phase: 3.6, color: '116,163,239', highlight: '174,213,255', width: 3.15, intensity: .27, speed: 1.26},
+    {side: -1, phase: .3, color: '239,93,166', highlight: '255,192,217', width: 1.8},
+    {side: 1, phase: 2.1, color: '201,110,246', highlight: '242,181,250', width: 1.5},
+    {side: 1, phase: 4.7, color: '245,87,112', highlight: '255,222,174', width: 1.15}
+  ];
+  let frame = 0;
+  let last = -Infinity;
+
+  function draw(now) {
+    frame = 0;
+    if (reduce.matches || document.hidden || window.__nxBootHold) return;
+    const speaking = center.dataset.speaking === 'true';
+    const strength = Number(getComputedStyle(center).getPropertyValue('--katana-voice-light'));
+    if (!speaking && strength < .003) {
+      ctx.clearRect(0, 0, width, height);
+      return;
+    }
+    if (now - last >= 32) {
+      last = now;
+      ctx.clearRect(0, 0, width, height);
+      for (const strand of strands) {
+        const {side, phase, color, highlight, intensity = 1, speed = 1} = strand;
+        const t = now / 1000 * speed;
+        const breath = intensity * (.77 + .22 * Math.sin(t * 3.15 + phase));
+        const glow = ctx.createLinearGradient(0, 0, 0, height);
+        glow.addColorStop(0, `rgba(${color},0)`);
+        glow.addColorStop(.13, `rgba(${color},${.56 * breath})`);
+        glow.addColorStop(.42 + .23 * Math.sin(t * 2.1 + phase), `rgba(${highlight},${breath})`);
+        glow.addColorStop(.81, `rgba(${color},${.91 * breath})`);
+        glow.addColorStop(1, `rgba(${color},0)`);
+        ctx.beginPath();
+        for (let y = 0; y <= height; y += 6) {
+          const p = y / height;
+          const x = width / 2 - 12 * p ** 4 + side * (9 + 5 * Math.sin(p * Math.PI))
+            + Math.sin(p * 12.1 + t * 4 + phase) * (8.5 + 10.5 * Math.sin(p * Math.PI))
+            + Math.sin(p * 21 + t * 5.3 - phase) * 3.4;
+          if (y === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = glow;
+        ctx.shadowColor = `rgba(${color},${.78 * intensity})`;
+        ctx.shadowBlur = 11;
+        ctx.lineWidth = strand.width;
+        ctx.stroke();
+      }
+    }
+    frame = requestAnimationFrame(draw);
+  }
+
+  function update() {
+    if (!frame && !reduce.matches && !document.hidden && !window.__nxBootHold
+        && center.dataset.speaking === 'true') frame = requestAnimationFrame(draw);
+  }
+  new MutationObserver(update).observe(center, {attributes: true, attributeFilter: ['data-speaking']});
+  window.addEventListener('nx-boot-ready', update, {once: true});
+  document.addEventListener('visibilitychange', update);
+  reduce.addEventListener('change', update);
+  update();
+})();
+</script>
+
+<style id="katana-voice-light-fade">
+@property --katana-voice-light {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+#bladeCenter {
+  --katana-voice-light: 0;
+  transition: --katana-voice-light 3s ease-in-out;
+}
+#bladeCenter[data-speaking="true"] {
+  --katana-voice-light: 1;
+  transition-duration: 1.9s;
+}
+#bladeCenter #bladeSword,
+#bladeCenter[data-speaking="true"] #bladeSword {
+  filter: drop-shadow(0 0 5px #a646b780)
+    drop-shadow(0 0 9px rgb(255 134 176 / calc(var(--katana-voice-light) * .72)))
+    drop-shadow(0 0 24px rgb(165 35 101 / calc(var(--katana-voice-light) * .52)));
+  transition: none;
+}
+#bladeCenter .muramasa-blade-light,
+#bladeCenter:has([data-phase="listening"], [data-phase="thinking"], [data-phase="responding"], [data-phase="speaking"]) .muramasa-blade-light {
+  opacity: max(var(--katana-other-light, .47), calc(.47 + .26 * var(--katana-voice-light)));
+}
+#bladeCenter:has([data-phase="listening"]) { --katana-other-light: .55; }
+#bladeCenter:has([data-phase="thinking"]) { --katana-other-light: .68; }
+@media (prefers-reduced-motion: reduce) {
+  #bladeCenter { transition: none; }
+}
+</style>
+
+<style id="katana-mobile-layout">
+@media (max-width: 700px) and (orientation: portrait) {
+  body {
+    --katana-gutter: 12px;
+    --katana-bottom: max(10px, env(safe-area-inset-bottom));
+    --katana-input-height: 54px;
+  }
+  #bladeHeader {
+    box-sizing: border-box;
+    padding: env(safe-area-inset-top) var(--katana-gutter) 0;
+    height: calc(54px + env(safe-area-inset-top));
+  }
+  #bladeHeader strong { font-size: 15px; letter-spacing: .14em; }
+  #bladeHeader > div:first-child { margin-right: auto; white-space: nowrap; }
+  #bladeHeader span:has(> #bladeOnline), #nxEdition { display: none !important; }
+  #bladeHeader .nexus-mobile-controls { position: static; }
+  #bladeHeader button { min-height: 44px; padding: 0 7px; }
+  body #taskPanel[data-mobile-open="true"] {
+    top: calc(60px + env(safe-area-inset-top)) !important;
+  }
+  #bladeTitle {
+    display: block;
+    left: var(--katana-gutter);
+    top: calc(69px + env(safe-area-inset-top));
+    width: auto;
+  }
+  #bladeTitle .kanji { font-size: 33px; }
+  #bladeTitle h1 { margin: 7px 0; font-size: clamp(16px, 4.9vw, 24px); }
+  #bladeTitle .muramasa-title { margin: 4px 0; font-size: 12px; }
+  #bladeTitle .subtitle, #bladeTitle .rule, #bladeTitle .blade-stages,
+  #bladeFooter, #bladeRipples { display: none !important; }
+  #bladeCenter {
+    left: 54%;
+    top: 20svh;
+    height: 48svh;
+  }
+  body .console, body .input-area {
+    box-sizing: border-box !important;
+    left: max(var(--katana-gutter), env(safe-area-inset-left)) !important;
+    right: max(var(--katana-gutter), env(safe-area-inset-right)) !important;
+    top: auto !important;
+    width: auto !important;
+  }
+  body .console {
+    bottom: calc(var(--katana-bottom) + var(--katana-input-height) + 8px + var(--katana-keyboard, 0px)) !important;
+    height: clamp(66px, 14svh, 128px) !important;
+    padding: 8px 10px !important;
+    background: rgba(3, 17, 33, .61) !important;
+  }
+  body .input-area {
+    bottom: calc(var(--katana-bottom) + var(--katana-keyboard, 0px)) !important;
+    height: var(--katana-input-height) !important;
+    background: rgba(4, 16, 30, .72) !important;
+  }
+  body .composer { padding: 0 4px 0 8px !important; gap: 2px !important; }
+  body #typingStatus { min-width: 0 !important; box-sizing: border-box; }
+  body #micBtn, body #kanaBtn, body #bladeSend {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 5px !important;
+  }
+}
+</style>
+<script>
+(() => {
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const input = document.getElementById('typingStatus');
+  const update = () => {
+    const keyboard = document.activeElement === input && viewport.scale === 1
+      ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
+    document.body.style.setProperty('--katana-keyboard', keyboard + 'px');
+  };
+  viewport.addEventListener('resize', update);
+  viewport.addEventListener('scroll', update);
+  input.addEventListener('blur', () => document.body.style.removeProperty('--katana-keyboard'));
+})();
+</script>
