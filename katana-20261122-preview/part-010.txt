@@ -1,0 +1,2950 @@
+ 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+      const u = { 十: 10, 百: 100, 千: 1000 };
+      return str.replace(/[〇零一二三四五六七八九十百千]+(?=[時分秒日月年乗個回件番度つかからまでたすひくわるの+\-*/×÷\s]|$)/g, (seq) => {
+        let total = 0, cur = 0;
+        for (const ch of seq) {
+          if (ch in d) cur = cur * 10 + d[ch];
+          else { total += (cur || 1) * u[ch]; cur = 0; }
+        }
+        return String(total + cur);
+      });
+    }
+    function normalize(text) {
+      return kanjiToNum(text.normalize("NFKC")).replace(/[。！!？?]+$/g, "").trim();
+    }
+
+    // 時間表現 → ミリ秒
+    function parseDuration(t) {
+      let ms = 0, hit = false;
+      const h = t.match(/(\d+(?:\.\d+)?)\s*時間/); if (h) { ms += h[1] * 3600000; hit = true; }
+      const m = t.match(/(\d+(?:\.\d+)?)\s*分(?!の)/); if (m) { ms += m[1] * 60000; hit = true; }
+      const s = t.match(/(\d+)\s*秒/); if (s) { ms += s[1] * 1000; hit = true; }
+      if (/半/.test(t) && h) ms += 1800000;
+      return hit ? ms : null;
+    }
+
+    /* ---------- 安全な数式評価 (eval不使用) ---------- */
+    function calc(expr) {
+      const tokens = expr.match(/\d+(?:\.\d+)?|[-+*/^%()]|√|sqrt/g);
+      if (!tokens || tokens.join("") !== expr.replace(/\s+/g, "")) throw new Error("bad");
+      let i = 0;
+      const peek = () => tokens[i], next = () => tokens[i++];
+      function primary() {
+        const t = next();
+        if (t === "(") { const v = add(); if (next() !== ")") throw new Error("paren"); return v; }
+        if (t === "-") return -primary();
+        if (t === "+") return primary();
+        if (t === "√" || t === "sqrt") return Math.sqrt(primary());
+        if (t !== undefined && /^\d/.test(t)) return parseFloat(t);
+        throw new Error("token");
+      }
+      function power() { let v = primary(); if (peek() === "^") { next(); v = Math.pow(v, power()); } return v; }
+      function mul() {
+        let v = power();
+        while (["*", "/", "%"].includes(peek())) { const op = next(), r = power(); v = op === "*" ? v * r : op === "/" ? v / r : v % r; }
+        return v;
+      }
+      function add() {
+        let v = mul();
+        while (["+", "-"].includes(peek())) { const op = next(), r = mul(); v = op === "+" ? v + r : v - r; }
+        return v;
+      }
+      const v = add();
+      if (i !== tokens.length) throw new Error("trail");
+      return v;
+    }
+    function toMathExpr(t) {
+      return t
+        .replace(/計算して|計算|を?求めて|教えて|って|は\s*(いくつ|何|なに|なん).*$|イコール|=$/g, "")
+        .replace(/の?平方根|ルート/g, (m) => "√")
+        .replace(/たす|足す|プラス|＋/g, "+").replace(/ひく|引く|マイナス|−|ー(?=\d)/g, "-")
+        .replace(/かける|掛ける|×|x(?=\d)|X(?=\d)/g, "*").replace(/わる|割る|÷/g, "/")
+        .replace(/の(\d+)乗/g, "^$1").replace(/の二乗|の2乗/g, "^2")
+        .replace(/\s+/g, "").trim();
+    }
+
+    /* ---------- 既知サイト ---------- */
+    const SITES = {
+      "youtube": "https://www.youtube.com/", "ユーチューブ": "https://www.youtube.com/",
+      "google": "https://www.google.com/", "グーグル": "https://www.google.com/",
+      "gmail": "https://mail.google.com/", "ジーメール": "https://mail.google.com/",
+      "カレンダー": "https://calendar.google.com/", "地図": "https://www.google.com/maps", "マップ": "https://www.google.com/maps",
+      "ツイッター": "https://x.com/", "x": "https://x.com/", "インスタ": "https://www.instagram.com/", "instagram": "https://www.instagram.com/",
+      "アマゾン": "https://www.amazon.co.jp/", "amazon": "https://www.amazon.co.jp/",
+      "ウィキペディア": "https://ja.wikipedia.org/", "天気": "https://tenki.jp/", "ニュース": "https://news.google.com/?hl=ja&gl=JP&ceid=JP:ja",
+      "chatgpt": "https://chatgpt.com/", "claude": "https://claude.ai/", "翻訳": "https://translate.google.com/"
+    };
+    function openUrl(url) { try { window.open(url, "_blank", "noopener"); } catch (_) {} }
+
+    /* ---------- 単位換算 ---------- */
+    const UNITS = [
+      [/(\d+(?:\.\d+)?)\s*(?:km|キロメートル|キロ)(?:は|を)?\s*(?:何)?(?:マイル)/i, (v) => `${v}km は 約 ${(v * 0.621371).toFixed(2)} マイルです。`],
+      [/(\d+(?:\.\d+)?)\s*(?:マイル|mile)/i, (v) => `${v}マイル は 約 ${(v * 1.609344).toFixed(2)} km です。`],
+      [/(\d+(?:\.\d+)?)\s*(?:kg|キログラム)(?:は|を)?.*(?:ポンド|lb)/i, (v) => `${v}kg は 約 ${(v * 2.20462).toFixed(2)} ポンドです。`],
+      [/(\d+(?:\.\d+)?)\s*(?:ポンド|lb)/i, (v) => `${v}ポンド は 約 ${(v * 0.453592).toFixed(2)} kg です。`],
+      [/(-?\d+(?:\.\d+)?)\s*(?:℃|度|°C|摂氏).*(?:華氏|℉|°F)/i, (v) => `摂氏${v}度 は 華氏 ${(v * 9 / 5 + 32).toFixed(1)} 度です。`],
+      [/(?:華氏|℉|°F)\s*(-?\d+(?:\.\d+)?)|(-?\d+(?:\.\d+)?)\s*(?:℉|°F|華氏)/i, (v) => `華氏${v}度 は 摂氏 ${((v - 32) * 5 / 9).toFixed(1)} 度です。`],
+      [/(\d+(?:\.\d+)?)\s*(?:インチ|inch)/i, (v) => `${v}インチ は ${(v * 2.54).toFixed(2)} cm です。`],
+      [/(\d+(?:\.\d+)?)\s*(?:cm|センチ).*(?:インチ|inch)/i, (v) => `${v}cm は ${(v / 2.54).toFixed(2)} インチです。`]
+    ];
+
+    /* ---------- タイマー / リマインダー ---------- */
+    function startTimer(ms, label) {
+      const id = Math.random().toString(36).slice(2, 8);
+      const end = Date.now() + ms;
+      const handle = setTimeout(() => {
+        const idx = timers.findIndex((t) => t.id === id); if (idx >= 0) timers.splice(idx, 1);
+        beep(4);
+        const msg = `${db.title}、${label}が経過しました。`;
+        addMessage("nexus", msg); speak(msg, true); notify(msg);
+        flashCore();
+        setTask("done", "TIMER", msg, "COMMAND", "AWAITING COMMAND"); returnTaskToIdle(5000);
+      }, ms);
+      timers.push({ id, label, end, handle });
+    }
+    function maskKeys(t) { return String(t).replace(/((?:サーバー|さーばー|server)[:：\s]+https:\/\/\S+\s+)\S{16,}/gi, "$1（合言葉・伏せ字）").replace(/((?:オムニルート|おむにるーと|omniroute|omni ?route)[^:：\s]{0,6}[:：\s]+)[0-9A-Za-z_\-.]{12,}/gi, "$1（鍵・伏せ字）").replace(/(AIza[0-9A-Za-z_\-]{20,}|sk-[A-Za-z0-9_\-]{16,}|oma_[A-Za-z0-9_\-]{8,}|xai-[A-Za-z0-9_\-]{16,}|gsk_[A-Za-z0-9_\-]{16,})/g, "（鍵・伏せ字）"); }
+    function scheduleReminder(r) {
+      const ms = r.at - Date.now();
+      const fire = () => {
+        db.reminders = db.reminders.filter((x) => x.id !== r.id); save();
+        beep(3);
+        const msg = `${db.title}、リマインドです。「${r.text}」の時間です。`;
+        addMessage("nexus", msg); speak(msg, true); notify(msg); flashCore();
+      };
+      if (ms <= 0) setTimeout(() => { const late = `（${fmtDur(-ms)}遅れ）`; r.text += late; fire(); }, 1200);
+      else if (ms < 2147483647) setTimeout(fire, ms);
+      else setTimeout(() => scheduleReminder(r), 2147000000);   // 版144：約24.8日より先の予定も、途中で予約し直して鳴らす
+    }
+    db.reminders.forEach(scheduleReminder);
+
+    function flashCore() {
+      holo.classList.remove("core-trail"); void holo.offsetWidth; holo.classList.add("core-trail");
+      setTimeout(() => holo.classList.remove("core-trail"), 2600);
+      if (typeof window.runCoreNoise === "function") window.runCoreNoise(2300);
+    }
+
+    /* ---------- システム情報 ---------- */
+    async function systemReport() {
+      const lines = [];
+      lines.push(`稼働時間：${fmtDur(Date.now() - sessionStart)}`);
+      lines.push(`ネットワーク：${navigator.onLine ? "オンライン" : "オフライン"}`);
+      try {
+        if (navigator.getBattery) {
+          const b = await navigator.getBattery();
+          lines.push(`バッテリー：${Math.round(b.level * 100)}%${b.charging ? "（充電中）" : ""}`);
+        }
+      } catch (_) {}
+      if (navigator.hardwareConcurrency) lines.push(`CPUスレッド：${navigator.hardwareConcurrency}`);
+      if (navigator.deviceMemory) lines.push(`メモリ：約${navigator.deviceMemory}GB`);
+      lines.push(`画面：${screen.width}×${screen.height}`);
+      lines.push(`記憶項目：${Object.keys(db.memory).length}件 / メモ：${db.memos.length}件 / TODO：${db.todos.filter((t) => !t.done).length}件`);
+      lines.push(`稼働中タイマー：${timers.length}件 / 予約リマインダー：${db.reminders.length}件`);
+      return `全システム正常です、${db.title}。\n` + lines.join("\n");
+    }
+
+    function greetingWord() {
+      const h = new Date().getHours();
+      return h < 5 ? "夜分遅くまでお疲れさまです" : h < 11 ? "おはようございます" : h < 17 ? "こんにちは" : "こんばんは";
+    }
+    async function briefing() {
+      const now = new Date();
+      const open = db.todos.filter((t) => !t.done);
+      const upcoming = db.reminders.slice().sort((a, b) => a.at - b.at).slice(0, 3);
+      let s = `${greetingWord()}、${db.title}。本日は${now.getMonth() + 1}月${now.getDate()}日 ${WEEK[now.getDay()]}曜日、現在${now.getHours()}時${now.getMinutes()}分です。\n`;
+      s += open.length ? `未完了のタスクが${open.length}件あります：${open.slice(0, 3).map((t) => t.text).join("、")}${open.length > 3 ? " ほか" : ""}。\n` : "未完了のタスクはありません。\n";
+      if (upcoming.length) s += `次のリマインダー：${upcoming.map((r) => `${new Date(r.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} ${r.text}`).join("、")}。\n`;
+      try { if (navigator.getBattery) { const b = await navigator.getBattery(); s += `端末のバッテリーは${Math.round(b.level * 100)}%です。`; } } catch (_) {}
+      return s.trim();
+    }
+
+    const HELP = [
+      "■ 会話：おはよう／調子は？／あなたは誰？／ありがとう",
+      "■ 時刻：今何時？／今日の日付／クリスマスまであと何日？",
+      "■ 計算：計算 12*(3+4)／100わる8／2の10乗／√144",
+      "■ タイマー：3分タイマー／1時間30分のタイマー／タイマー確認／タイマー停止",
+      "■ ストップウォッチ：ストップウォッチ開始／停止",
+      "■ リマインド：10分後に洗濯を教えて／15時30分に会議をリマインド",
+      "■ メモ：メモ 牛乳を買う／メモ一覧／メモ削除 2／メモ全消去",
+      "■ タスク：タスク追加 資料作成／タスク一覧／完了 1／タスク削除 1",
+      "■ 記憶：覚えて 私の誕生日は5月9日／私の誕生日は？／忘れて 私の誕生日",
+      "■ 学習：「おつかれ」と言ったら「恐縮です」と答えて",
+      "■ 呼び名：私を社長と呼んで／私の名前は太郎",
+      "■ 検索・起動：猫を検索／YouTubeで音楽／YouTubeを開いて／東京駅の地図",
+      "■ 換算：10kmは何マイル／30度は華氏／5インチ",
+      "■ 遊び：サイコロ／コイン／1から100で数字／じゃんけん グー／ジョーク",
+      "■ AI（Gemini）：「鍵を作る」で接続（鍵をコピーすれば自動で受け取ります）／Claude・ChatGPT なども鍵を貼るだけ（「AIの一覧」「AIをClaudeにして」）／読み方：〇〇＝△△／要望：〇〇（NEXUS への改善を頼む。右腕が次の版で直す）／AI診断／ふつうの言葉で「メモ帳を開いて」「音量を下げて」など",
+      "■ システム：ステータス／ブリーフィング／声を出して／静かに／履歴消去／終了（F11で全画面切替）",
+      "AI につながっているときは、会話と声が選んだ AI（Gemini など）に送られて答えを作ります。記憶・メモ・タスクはこの端末に保存されます。"
+    ].join("\n");
+
+    /* ==========================================================
+       意図解析 → 応答
+       返り値: { reply, route, intent, link?, speakForce? }
+       ========================================================== */
+    async function think(raw) {
+      let t = normalize(raw).replace(/^(ネクサス|nexus|ねくさす)[、,\s]*/i, "");
+      const T = db.title;
+      const R = (reply, route = "CONVERSATION", intent = "CHAT", extra = {}) => Object.assign({ reply, route, intent }, extra);
+      const has = (...w) => w.some((x) => t.toLowerCase().includes(x.toLowerCase()));
+
+      if (!t) return R(`はい、${T}。お呼びでしょうか。`);
+
+      // 保留中の確認
+      if (pending) {
+        if (/^(はい|うん|お願い|頼む|yes|ok|オッケー|ええ|そうして|やって)/i.test(t)) {
+          const p = pending; pending = null;
+          if (p.type === "claude") {
+            const copied = await openClaude(p.q);
+            return R(copied ? `Claudeを開きました。質問はコピー済みです。入力欄で Ctrl+V を押して送ってください。` : "Claudeを開きました。入力欄に質問をどうぞ。", "CONVERSATION", "CLAUDE");
+          }
+          if (p.type === "open") { openUrl(p.url); return R(`承知しました。${p.label}を開きます。`, "COMMAND", "OPEN", { link: { url: p.url, label: p.label } }); }
+          if (p.type === "clearAll") { db.memos = []; db.todos = []; db.memory = {}; db.teach = {}; db.history = []; save(); return R("全データを消去しました。白紙からやり直しましょう。", "MEMORY", "CLEAR"); }
+        }
+        if (/^(いいえ|いや|やめて|結構|no|キャンセル|不要)/i.test(t)) { pending = null; return R("かしこまりました。取りやめます。"); }
+        pending = null;
+      }
+
+      // 学習済みの応答（最優先）
+      for (const [k, v] of Object.entries(db.teach)) if (t === k || t.includes(k)) return R(v, "CONVERSATION", "TAUGHT");
+
+      // 学習
+      let m = t.match(/[「『](.+?)[」』]\s*(?:と言ったら|って言ったら|と聞いたら|には)\s*[「『](.+?)[」』]\s*(?:と|って)?(?:答えて|返して|言って)/);
+      if (m) { db.teach[m[1]] = m[2]; save(); return R(`学習しました。今後「${m[1]}」には「${m[2]}」とお答えします。`, "MEMORY", "TEACH"); }
+      m = t.match(/[「『](.+?)[」』]\s*(?:を)?(?:忘れて|の学習を消して)/);
+      if (m && db.teach[m[1]]) { delete db.teach[m[1]]; save(); return R(`「${m[1]}」の応答を削除しました。`, "MEMORY", "UNTEACH"); }
+
+      // 読み方を教える（版106）：「読み方：富士山＝ふじさん」「読み方の一覧」「読み方を消して：富士山」
+      m = raw.trim().match(/^(?:読み方|よみかた)\s*[:：]\s*(.+?)\s*[=＝]\s*(.+)$/);
+      if (m) { db.readings = Object.assign({}, db.readings, { [m[1]]: m[2].replace(/[。．.]$/, "") }); save(); return R(`「${m[1]}」は「${db.readings[m[1]]}」と読みます。`, "MEMORY", "READING", { speakForce: true }); }
+      if (/^(読み方|よみかた)(の)?(一覧|いちらん|リスト)$/.test(t)) { const e = Object.entries(db.readings || {}); return R(e.length ? e.map(([k, v]) => `${k} → ${v}`).join("\n") : "教えてもらった読み方は、まだありません。「読み方：富士山＝ふじさん」のように教えてください。", "MEMORY", "READING"); }
+      m = raw.trim().match(/^(?:読み方|よみかた)を?(?:消して|けして|削除して|忘れて)\s*[:：]\s*(.+)$/);
+      if (m) { if (db.readings && db.readings[m[1]]) { delete db.readings[m[1]]; save(); return R(`「${m[1]}」の読み方を消しました。`, "MEMORY", "READING"); } return R(`「${m[1]}」の読み方は登録されていません。`, "MEMORY", "READING"); }
+
+      // 声の設定（AivisSpeech）
+      if (/^(声|こえ|ボイス|ぼいす|音声|おんせい)(の|を)?(一覧|いちらん|リスト|りすと|種類|しゅるい|選択肢|せんたくし)$|^(声|こえ|ボイス|ぼいす)(を)?(変えたい|かえたい|選びたい|えらびたい)$/.test(t)) {
+        if (!window.__NEXUS_APP__) return R("声の変更はアプリ版で使えます。", "SYSTEM", "VOICE");
+        if (!(await vvCheck())) {
+          const names = sysVoiceNames();
+          if (!names.length) return R("このパソコンで使える日本語の声が見つかりませんでした。", "SYSTEM", "VOICE");
+          return R(names.map((n, i) => `${i + 1}：${n}`).join("\n") + "\n\n「声を〇〇にして」と言うと変わります（例：声を Haruka にして）。", "SYSTEM", "VOICE");
+        }
+        const list = VV.speakers || (await vvSpeakers());
+        return R(list.slice(0, 40).map((x) => x.name).join("\n") + "\n\n「声を〇〇にして」と言うと変わります（例：声を四国めたんにして）。", "SYSTEM", "VOICE");
+      }
+      // 声の作り方を選ぶ（版111）：Gemini（クラウド・PC の性能に左右されない）／VOICEVOX（PC の中）／Windows（すぐ出る）
+      if (/^(?:声|こえ)(?:を)?(?:gemini|ジェミニ)(?:に)?(?:して|変えて|かえて)$|^(?:gemini|ジェミニ)(?:の声)?で(?:話して|読んで)$/i.test(t)) {
+        if (!(window.NexusAI && NexusAI.geminiFor && NexusAI.geminiFor())) return R("Gemini の鍵がありません。「鍵を作る」で Gemini につないでください。", "SYSTEM", "VOICE");
+        VV.engine = "gemini"; saveVV(); return R("Gemini の声で話します。声はクラウドで作るので、PC の性能に左右されません。", "SYSTEM", "VOICE", { speakForce: true });
+      }
+      if (/^(?:声|こえ)(?:を)?(?:軽い声|かるいこえ|軽いこえ|supertonic|スーパートニック)(?:に)?(?:して|変えて|かえて)$|^(?:軽い声|かるいこえ|supertonic|スーパートニック)で(?:話して|読んで)$/i.test(t)) {
+        if (!(await lightCheck())) return R(`軽い声はまだ入っていません（${VV.lightError || "準備中"}）。係が入れ終えたら使えます。`, "SYSTEM", "VOICE");
+        VV.engine = "light"; saveVV(); return R(`軽い声で話します（声は ${VV.lightCount} 種類。「軽い声の2にして」で替えられます）。`, "SYSTEM", "VOICE", { speakForce: true });
+      }
+      if (/^(?:軽い声|かるいこえ)を?(?:速く|はやく)(?:して)?$/.test(t)) { VV.lightSteps = 4; saveVV(); return R("軽い声を速くしました（少し不安定になることがあります）。", "SYSTEM", "VOICE", { speakForce: true }); }
+      if (/^(?:軽い声|かるいこえ)を?(?:丁寧に|ていねいに|安定させて|きれいにして)(?:して)?$/.test(t)) { VV.lightSteps = 8; saveVV(); return R("軽い声を丁寧にしました（声は安定しますが、少し遅くなります）。", "SYSTEM", "VOICE", { speakForce: true }); }
+      m = t.match(/^(?:声|こえ)?(?:を)?(?:軽い声|かるいこえ)の?(\d+)(?:番)?(?:に)?(?:して|変えて|かえて)$/);
+      if (m) {
+        if (!(await lightCheck())) return R("軽い声はまだ入っていません。", "SYSTEM", "VOICE");
+        const n = Math.min(Math.max(parseInt(m[1], 10), 1), VV.lightCount);
+        VV.engine = "light"; VV.lightSid = n - 1; saveVV(); return R(`軽い声の${n}にしました。`, "SYSTEM", "VOICE", { speakForce: true });
+      }
+      if (/^(?:声|こえ)(?:を)?(?:windows|ウィンドウズ|システム)(?:に)?(?:して|変えて|かえて)$|^(?:windows|ウィンドウズ)(?:の声)?で(?:話して|読んで)$/i.test(t)) { VV.engine = "system"; saveVV(); return R("Windows の声で話します。", "SYSTEM", "VOICE", { speakForce: true }); }
+      const voiceSet = t.match(/^(?:声|こえ|ボイス|ぼいす)(?:を)?(.+?)(?:に|へ)(?:変えて|かえて|して|変更して|設定して)$/);
+      if (voiceSet && window.__NEXUS_APP__) {
+        if (!(await vvCheck())) return R("声のソフトが動いていません。「VOICEVOXを起動して」と打ってください。", "SYSTEM", "VOICE");
+        const want = voiceRead(voiceSet[1]);
+        const list = VV.speakers || (await vvSpeakers());
+        const hit = list.find((x) => voiceRead(x.name).startsWith(want)) || list.find((x) => voiceRead(x.name).includes(want));
+        if (!hit) return R(`「${voiceSet[1]}」の声はありません。「声の一覧」で確かめてください。`, "SYSTEM", "VOICE");
+        VV.speaker = hit.id; VV.engine = "aivis"; VV.chosen = true; saveVV();
+        return R(`声を${hit.name}にしました。`, "SYSTEM", "VOICE", { speakForce: true });
+      }
+      if (/^(VOICEVOX|ボイスボックス|ぼいすぼっくす)(で|の声で)(話して|読んで)$/i.test(t)) { VV.engine = "aivis"; try { await vvSpeakers(); } catch (_) {} saveVV(); return R("VOICEVOX の声で話します。", "SYSTEM", "VOICE", { speakForce: true }); }
+      if (/^(AivisSpeech|アイビススピーチ)(で|の声で)(話して|読んで)$/i.test(t)) { VV.engine = "aivis"; try { await vvSpeakers(); } catch (_) {} saveVV(); return R("AivisSpeech の声で話します。", "SYSTEM", "VOICE", { speakForce: true }); }
+
+      // 版164：「サーバー：https://<IP>.sslip.io 合言葉」で NEXUS の無料サーバーを登録（「サーバーをやめて」で外す）
+      const sv = raw.trim().match(/^(?:サーバー|さーばー|server)[:：\s]+(https:\/\/[0-9A-Za-z.\-]+\.sslip\.io)\/?\s+([0-9A-Za-z_\-]{16,128})$/i);
+      if (sv) { localStorage.setItem("nexus.server.v1", JSON.stringify({ url: sv[1], token: sv[2] })); VV.serverDownUntil = 0; return R("サーバーを登録しました。声づくりはサーバーに頼み、Gemini が断ったときの会話もサーバーの頭が答えます。サーバーが止まっていたら、これまでどおり PC の中で動きます。", "SYSTEM", "AI_SETUP"); }
+      if (/^(サーバーをやめて|サーバーを外して)$/.test(t)) { localStorage.removeItem("nexus.server.v1"); return R("サーバーを外しました。これからは PC の中だけで動きます。", "SYSTEM", "AI_SETUP"); }
+      // 版147：OmniRoute の鍵は形が決まっていないので、「オムニルート：鍵」と頭に付けて貼る（会長：「OMA からは始まってない」）
+      const omniKey = (raw.trim().match(/^(?:オムニルート|おむにるーと|omniroute|omni ?route)(?:の鍵|のキー| ?key)?[:：\s]+([0-9A-Za-z_\-.]{12,240})$/i) || [])[1];
+      if (omniKey && window.NexusAI) {
+        try {
+          const model = await NexusAI.setupGemini(omniKey, "omniroute");
+          window.dispatchEvent(new CustomEvent("nexus-ai-changed", { detail: "" }));
+          return R(`OmniRoute とつながりました（使う AI：${model}）。これからの会話は OmniRoute を通ります。`, "SYSTEM", "AI_SETUP");
+        } catch (e) { return R(`OmniRoute につながりませんでした（${e.message || e}）。OmniRoute が動いているか、鍵が合っているかを確かめてください。`, "SYSTEM", "AI_SETUP"); }
+      }
+      // Gemini：鍵をそのまま貼れば接続
+      const keyText = (raw.trim().match(/^(?:(?:鍵|キー|key|apiキー|api key)[:：\s]+)?((?:AIza)[0-9A-Za-z_\-]{20,}|oma_[0-9A-Za-z_\-]{8,}|[0-9A-Za-z_\-.]{35,240})$/i) || [])[1];
+      if (keyText && (/^AIza/.test(keyText) || /^oma_/.test(keyText) || /^(鍵|キー|key|api)/i.test(raw.trim()) || /\d/.test(keyText) && /[A-Z]/.test(keyText) && /[a-z]/.test(keyText)) && window.NexusAI) {
+        try {
+          const model = await NexusAI.setupGemini(keyText);
+          const hp = NexusAI.helper && NexusAI.helper();
+          if (hp && hp.key === keyText) return R(`${hp.name} の鍵を預かりました（${model}）。主役は Gemini のままで、難しい質問や、Gemini で調べられないときに ${hp.name} にも尋ねます。`, "SYSTEM", "AI_SETUP");
+          window.dispatchEvent(new CustomEvent("nexus-ai-changed", { detail: "" }));
+          return R(`鍵を確認しました。${NexusAI.provName()} との接続が完了しています。これでPC操作も含めてお任せください。「メモ帳を開いて」「音量を下げて」「明日の9時に会議をリマインド」など、ふつうの言葉でどうぞ。`, "SYSTEM", "AI_SETUP");
+        } catch (e) { return R(`その鍵では接続できませんでした（${e.message || e}）。鍵をもう一度コピーして貼り付けてください。`, "SYSTEM", "AI_SETUP"); }
+      }
+      // どの AI でも：鍵を保存した AI に切り替える／一覧を見る
+      const aiSwitch = t.match(/^(?:ai|エーアイ)(?:を)?(gemini|ジェミニ|claude|クロード|chatgpt|チャットgpt|gpt|openai|groq|グロック|openrouter|オープンルーター|grok|グロク|deepseek|ディープシーク)(?:に)?(?:して|変えて|かえて|切り替えて|戻して)$/i);
+      if (aiSwitch && window.NexusAI && NexusAI.useProvider) {
+        const w = aiSwitch[1].toLowerCase();
+        const p = /gemini|ジェミニ/.test(w) ? "gemini" : /claude|クロード/.test(w) ? "claude" : /chatgpt|チャットgpt|^gpt$|openai/.test(w) ? "openai" : /^groq$|グロック/.test(w) ? "groq" : /openrouter|オープンルーター/.test(w) ? "openrouter" : /^grok$|グロク/.test(w) ? "xai" : "deepseek";
+        const info = NexusAI.providers().find((x) => x.id === p);
+        if (NexusAI.useProvider(p)) { window.dispatchEvent(new CustomEvent("nexus-ai-changed", { detail: "" })); return R(`AI を ${info.name} に切り替えました。`, "SYSTEM", "AI_SETUP"); }
+        return R(`${info.name} の鍵がまだありません。${info.url} で鍵を作り、この入力欄に貼り付けてください。貼るだけで ${info.name} につながります（料金は ${info.name} の契約によります）。`, "SYSTEM", "AI_SETUP");
+      }
+      if (/^(ai|エーアイ)(の)?(一覧|いちらん|リスト|りすと|種類|しゅるい)$/i.test(t) && window.NexusAI && NexusAI.providers) {
+        return R(NexusAI.providers().map((x) => `${x.current ? "▶" : "・"}${x.name}：${x.saved ? "鍵あり" : "鍵なし"}`).join("\n") + "\n\n鍵を貼るとその AI につながります。「AIをClaudeにして」「AIをGeminiに戻して」で切り替えます。", "SYSTEM", "AI_SETUP");
+      }
+      if (/^(鍵を?(作る|作って|作成|ちょうだい|取る|取って)|(gemini|ジェミニ)の?鍵|自動で?(設定|セットアップ)|セットアップ|ai(を|の)?(準備|セットアップ))/i.test(t)) return R(startKeySetup(), "SYSTEM", "AI_SETUP");
+      if (/^(gemini|ジェミニ)\s*(設定|接続|の鍵|につな)?/i.test(t) && window.NexusAI) return R("Gemini の設定を開きます。①「無料の鍵を取りに行く」→ ② 鍵を貼り付け → ③「保存」の順です。", "SYSTEM", "AI_SETUP", { after: () => NexusAI.openAt("gemini") });
+
+      // AIリンク
+      if (/^(ai|エーアイ)\s*(設定|接続|リンク)|^aiと(つな|繋)|^aiの設定/i.test(t)) return R("AIリンクの設定を開きます。", "SYSTEM", "AI_SETUP", { after: () => window.NexusAI && NexusAI.open() });
+      if (/(ai|エーアイ|ollama|オラマ|オーラマ|アルパカ|ラマ)\s*[とがにはの]?\s*(診断|状態|つながらない|繋がらない|つながってない|繋がってない|接続確認)/i.test(t)) {
+        if (!window.NexusAI) return R("AI機能が読み込まれていません。", "SYSTEM", "AI_DIAG");
+        return R(await NexusAI.diagnose(), "SYSTEM", "AI_DIAG", { shortSpeak: "AI接続を診断しました。結果を表示します。" });
+      }
+      if (/^(ai|エーアイ)に(聞いて|質問|相談)/i.test(t)) {
+        if (window.NexusAI && NexusAI.enabled()) return R("", "CONVERSATION", "AI", { ai: true });
+        return R("まだAIとつながっていません。「AI設定」から接続先を選んでください。", "SYSTEM", "AI_SETUP", { after: () => window.NexusAI && NexusAI.open() });
+      }
+
+      if (/バージョン|version|何版|最新版\?|最新版？/i.test(t)) return R(`現在のNEXUSは v${NEXUS_VERSION}（${window.__NEXUS_APP__ ? "アプリ版" : "ブラウザ版"}）です、${T}。`, "SYSTEM", "VERSION");
+
+      // Claude
+      m = t.match(/^(?:クロード|claude)(?:に|へ)(?:聞いて|質問|相談)[:：\s]*(.+)$/i);
+      if (m) {
+        const copied = await openClaude(m[1].trim());
+        return R(copied ? `Claudeを開きました。質問はコピー済みです。入力欄で Ctrl+V を押して送ってください、${T}。` : "Claudeを開きました。入力欄に質問をどうぞ。", "CONVERSATION", "CLAUDE");
+      }
+      // AI会社・AI秘書・NEXUSの更新（会長の指示・版100）。スタートメニューのショートカットを名前で起動する
+      const openNamed = async (name, okMsg) => {
+        const r = await pc("open_app", name);
+        return /^(not found|unknown|失敗|error|この操作は|応答)/i.test(String(r))
+          ? R(`「${name}」が見つかりませんでした。デスクトップの「NEXUSを最新にする」を一度実行してください。`, "COMMAND", "COMPANY")
+          : R(okMsg, "COMMAND", "COMPANY");
+      };
+      m = t.match(/^(?:ai)?(?:会社|かいしゃ)(?:に|へ)(?:依頼|お願い|頼んで|頼む)(?:して)?[：:、,\s]*(.+)$/i);
+      if (m) {
+        if (!(await copyText(m[1].trim()))) return R("依頼の文を秘書に渡せませんでした。「秘書を開いて」で秘書を開き、そこで依頼してください。", "COMMAND", "COMPANY");
+        return openNamed("AI会社に依頼", "AI会社への依頼を秘書に渡しました。秘書の画面で内容を確かめ、「はい」と答えてください。");
+      }
+      // 版129：NEXUS への改善の要望（会長：「改善点を喋ったら、今クロードコードでやってることをネクサスがやってほしい」）。
+      // 要望は係が GitHub の hub/inbox に届け、右腕（Claude Code）が次の版を作って係が入れ替える
+      m = raw.trim().match(/^(?:要望|改善|改善点|直して|なおして|ネクサスへの要望|NEXUSへの要望|ネクサスを直して|NEXUSを直して)[：:、,\s]+([\s\S]+)$/i);
+      if (m) {
+        const now = new Date();
+        const body = `差出人：NEXUS（会長の声・入力）\n会長の依頼：${m[1].trim()}\nしてほしいこと：NEXUS の改善。CLAUDE.md の決まり（見た目は変えない・課金しない）に従い、次の版を作って係で入れ替える\n日時：${now.toLocaleString("ja-JP")}\nNEXUS 版：${NEXUS_VERSION}\n`;
+        // 版132：PC の AI秘書（Claude Code）を、その場で呼んで直させる（数分で反映。会長：「最短で進めて」）
+        const ask = `NEXUS の改善の要望：${m[1].trim()}\n手順：①%LOCALAPPDATA%\\NEXUS\\NEXUS-local.html があればそれを、無ければ同じ所の NEXUS-current.html を写して NEXUS-local.html を作り、そこを直す（NEXUS_VERSION の数字は変えない。見た目・レイアウトは変えない。課金・削除・外部への送信はしない）。②直したら NEXUS を閉じて（taskkill /IM NEXUS.exe /F）、%LOCALAPPDATA%\\NEXUS\\NEXUS.exe を起動し直し、直ったことを確かめる。③このリポジトリの hub/inbox/ に「${now.toISOString().slice(0, 10).replace(/-/g, "")}-local-${now.getTime()}.md」（要望と直した内容）と、同じ名前の .html（NEXUS-local.html の写し）を置いて push する（右腕が次の正式版に取り込む）。`;
+        if (await copyText(ask)) {
+          const o = await pc("open_app", "秘書に頼む");
+          if (!/^(not found|unknown|失敗|error|この操作は|応答)/i.test(String(o))) return R("要望を受け付けました。AI秘書がいま直しています。数分で NEXUS が新しくなります。", "COMMAND", "REQUEST");
+        }
+        // 秘書を開けないときは、これまでどおり右腕（クラウド）に届ける
+        const r0 = await pc("outbox", body);
+        if (!/saved/.test(String(r0))) return R("要望を保存できませんでした。もう一度お願いします。", "COMMAND", "REQUEST");
+        return R("要望を受け付けました。係が届け、右腕が次の版で直します。できたら自動で入れ替わります。", "COMMAND", "REQUEST");
+      }
+      // 係（会長のPCで動く自動作業）に頼む（版101）
+      m = t.match(/^(?:ai)?(?:秘書|ひしょ)(?:に|へ)(?:頼む|頼んで|たのむ|たのんで|依頼|お願い)(?:して)?[：:、,\s]*(.+)$/i);
+      if (m) {
+        if (!(await copyText(m[1].trim()))) return R("依頼の文を渡せませんでした。もう一度お試しください。", "COMMAND", "COMPANY");
+        return openNamed("秘書に頼む", "秘書に頼みました。1〜2分で作業を始め、終わると結果がメモ帳で開きます。");
+      }
+      if (/^(?:voicevox|ボイスボックス|ぼいすぼっくす)(?:を)?(?:起動して|開いて|ひらいて|立ち上げて)?$/i.test(t)) {
+        if (await vvCheck()) return R("VOICEVOX は動いています。", "COMMAND", "VOICE");
+        const r0 = await pc("start_voicevox");
+        if (!/^started/.test(String(r0))) return R("VOICEVOX が見つかりませんでした。VOICEVOX を入れてから、もう一度言ってください。", "COMMAND", "VOICE");
+        for (let i = 0; i < 30 && !(await vvCheck()); i++) await new Promise((ok) => setTimeout(ok, 2000));
+        return R(VV.ok ? "VOICEVOX の準備ができました。" : "VOICEVOX を起動しましたが、まだ応答がありません。少し待ってから話しかけてください。", "COMMAND", "VOICE", { speakForce: !!VV.ok });
+      }
+      if (/^(?:ai)?(?:会社|かいしゃ)(?:を)?(?:動かして|うごかして|起動して|回して)/i.test(t)) return openNamed("会社を動かす", "AI会社を動かしました。終わると結果がメモ帳で開きます。");
+      if (/^(?:ai)?(?:秘書|ひしょ)(?:を)?(?:開いて|ひらいて|起動して|呼んで|よんで|出して)?$/i.test(t)) return openNamed("AI秘書", "AI秘書を開きました。");
+      if (/^(?:を)?(?:最新(?:版)?に(?:して|する|更新)?|アップデート(?:して)?|更新して)$/.test(t)) return openNamed("NEXUSを最新にする", "NEXUSの更新を始めました。終わると新しい版で立ち上がります。");
+      if (/^(?:クロード|claude)(?:を)?(?:閉じて|閉じる|しまって)/i.test(t)) {
+        if (window.__NEXUS_APP__) window.ipc.postMessage("claude-close");
+        return R("Claudeを閉じました。", "SYSTEM", "CLAUDE");
+      }
+      if (/^(?:クロード|claude)(?:を)?(?:開いて|開く|呼んで|出して)?$/i.test(t)) {
+        if (window.__NEXUS_APP__) { window.ipc.postMessage("claude-toggle"); return R("Claudeの画面を切り替えました。初回だけ、Claudeのアカウントでログインしてください。", "SYSTEM", "CLAUDE"); }
+        await openClaude(); return R("Claudeを新しいタブで開きました。", "SYSTEM", "CLAUDE");
+      }
+
+      // ヘルプ
+      if (/^(ヘルプ|help|使い方|何ができる|できること|コマンド)/i.test(t) || has("何ができる", "できることは")) return R(HELP, "SYSTEM", "HELP", { noSpeak: true, shortSpeak: "私にできることを一覧でお示しします。" });
+
+      // 呼び名・名前
+      m = t.match(/(?:私|僕|俺|わたし|ぼく|おれ)を(.+?)(?:と|って)呼んで/);
+      if (m) { db.title = m[1].trim(); save(); return R(`承知しました。今後は「${db.title}」とお呼びします。`, "MEMORY", "TITLE"); }
+      m = t.match(/(?:私|僕|俺|わたし|ぼく|おれ)の名前は(.+?)(?:です|だよ|だ)?$/);
+      if (m) { db.name = m[1].trim(); save(); return R(`${db.name}様ですね。しかと記憶いたしました。`, "MEMORY", "NAME"); }
+      if (has("私の名前は", "僕の名前は", "俺の名前は") && /[?？]|何|なに|わかる|知って/.test(raw) || /私は誰/.test(t))
+        return R(db.name ? `${db.name}様です。お忘れでしたか、${T}。` : `まだお名前を伺っておりません。「私の名前は〇〇」と教えていただけますか。`, "MEMORY", "NAME");
+
+      // 声の設定
+      if (has("声を出して", "喋って", "しゃべって", "音声オン", "読み上げて")) { db.speakAlways = true; save(); syncVoiceBtn(); return R("音声応答を有効にしました。以後、すべてお声がけいたします。", "SYSTEM", "VOICE", { speakForce: true }); }
+      if (has("静かに", "黙って", "音声オフ", "しゃべらないで", "喋らないで", "ミュート")) { db.speakAlways = false; save(); syncVoiceBtn(); speechSynthesis && speechSynthesis.cancel(); return R("承知しました。沈黙を守ります。", "SYSTEM", "VOICE"); }
+
+      // 全消去
+      if (window.__NEXUS_APP__ && has("全画面", "フルスクリーン", "ウィンドウに戻")) {
+        const off = has("解除", "やめ", "ウィンドウに戻");
+        window.ipc.postMessage(off ? "fullscreen-off" : "fullscreen-on");
+        return R(off ? "通常の窓に切り替えました。F11キーで全画面に戻せます。" : `全画面に切り替えました、${T}。`, "SYSTEM", "SCREEN");
+      }
+      if (window.__NEXUS_APP__ && /^(終了|閉じて|シャットダウン|おしまい)/.test(t)) {
+        return R(`かしこまりました。NEXUS、待機状態へ移行します。またお呼びください、${T}。`, "SYSTEM", "EXIT", { after: () => setTimeout(() => window.ipc.postMessage("exit"), 1600) });
+      }
+      if (has("全画面解除", "全画面をやめ", "フルスクリーン解除", "ウィンドウに戻")) {
+        if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch (_) {} }
+        return R("全画面を解除しました。戻らない場合はF11キーを押してください。", "SYSTEM", "SCREEN");
+      }
+      if (has("全画面", "フルスクリーン")) {
+        try { await document.documentElement.requestFullscreen({ navigationUI: "hide" }); return R(`全画面に切り替えました、${T}。`, "SYSTEM", "SCREEN"); }
+        catch (_) { return R("ブラウザの制約で、音声からは全画面にできません。画面を一度クリックするか、F11キーを押してください。", "SYSTEM", "SCREEN"); }
+      }
+      if (has("全データ消去", "全部忘れて", "初期化")) { pending = { type: "clearAll" }; return R(`本当に記憶・メモ・タスク・履歴をすべて消去してよろしいですか、${T}？（はい／いいえ）`, "SYSTEM", "CONFIRM"); }
+      if (has("履歴消去", "履歴を消して", "履歴を削除", "履歴削除", "会話履歴を消", "会話を消して", "会話をリセット", "ログ消去")) { db.history = []; save(); log.innerHTML = ""; return R("会話履歴を消去しました。", "SYSTEM", "HISTORY"); }
+
+      // ブリーフィング・ステータス
+      if (has("ブリーフィング", "報告して", "今日の予定", "状況報告")) return R(await briefing(), "SYSTEM", "BRIEFING");
+      if (has("ステータス", "システム状態", "システムチェック", "診断", "バッテリー")) return R(await systemReport(), "SYSTEM", "STATUS");
+
+      // タイマー
+      if (has("タイマー")) {
+        if (has("止め", "停止", "キャンセル", "解除", "消して")) {
+          if (!timers.length) return R("稼働中のタイマーはありません。", "COMMAND", "TIMER");
+          timers.splice(0).forEach((x) => clearTimeout(x.handle));
+          return R("すべてのタイマーを停止しました。", "COMMAND", "TIMER");
+        }
+        if (has("確認", "残り", "あと何", "一覧")) {
+          if (!timers.length) return R("稼働中のタイマーはありません。", "COMMAND", "TIMER");
+          return R(timers.map((x) => `${x.label}：残り${fmtDur(x.end - Date.now())}`).join("\n"), "COMMAND", "TIMER");
+        }
+        const ms = parseDuration(t);
+        if (ms) { const label = fmtDur(ms); startTimer(ms, label); askNotifyPermission(); return R(`${label}のタイマーを開始しました。時間になればお知らせします。`, "COMMAND", "TIMER"); }
+        return R("何分のタイマーにいたしましょう？「3分タイマー」のようにお申し付けください。", "COMMAND", "TIMER");
+      }
+
+      // ストップウォッチ
+      if (has("ストップウォッチ", "計測")) {
+        if (/止め|停止|終了|ストップ(?!ウォッチ)/.test(t.replace(/ストップウォッチ/g, ""))) {
+          if (!stopwatch) return R("ストップウォッチは動いていません。", "COMMAND", "STOPWATCH");
+          const el = Date.now() - stopwatch.start; stopwatch = null;
+          return R(`計測を終了しました。記録は ${fmtDur(el)}（${fmtClock(el)}）です。`, "COMMAND", "STOPWATCH");
+        }
+        if (stopwatch && has("確認", "何秒", "経過")) return R(`現在 ${fmtDur(Date.now() - stopwatch.start)} 経過しています。`, "COMMAND", "STOPWATCH");
+        stopwatch = { start: Date.now() };
+        return R("計測を開始しました。止めるときは「ストップウォッチ停止」と。", "COMMAND", "STOPWATCH");
+      }
+
+      // リマインダー
+      m = t.match(/^(.+?)後に(.+?)(?:を|って|と)?(?:教えて|リマインド|知らせて|言って|通知して|起こして)/);
+      if (m && parseDuration(m[1])) {
+        const ms = parseDuration(m[1]);
+        const r = { id: Date.now(), at: Date.now() + ms, text: m[2].replace(/(?:の|を)$/, "").trim() || "ご指定の件" };
+        db.reminders.push(r); save(); scheduleReminder(r); askNotifyPermission();
+        return R(`承知しました。${fmtDur(ms)}後に「${r.text}」をお知らせします。`, "COMMAND", "REMIND");
+      }
+      m = t.match(/(?:(明日)の?)?(午後)?(\d{1,2})時(?:(\d{1,2})分|(半))?に(.+?)(?:を|って|と)?(?:教えて|リマインド|知らせて|言って|通知して|起こして)/);
+      if (m) {
+        const d = new Date(); let h = +m[3]; if (m[2] && h < 12) h += 12;
+        d.setHours(h, m[5] ? 30 : +(m[4] || 0), 0, 0);
+        if (m[1]) d.setDate(d.getDate() + 1); else if (d <= new Date()) d.setDate(d.getDate() + 1);
+        const r = { id: Date.now(), at: d.getTime(), text: m[6].trim() || "ご指定の件" };
+        db.reminders.push(r); save(); scheduleReminder(r); askNotifyPermission();
+        return R(`${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}時${pad(d.getMinutes())}分に「${r.text}」をお知らせします。`, "COMMAND", "REMIND");
+      }
+      if (has("リマインダー一覧", "リマインド一覧", "予定一覧")) {
+        if (!db.reminders.length) return R("予約中のリマインダーはありません。", "COMMAND", "REMIND");
+        return R(db.reminders.slice().sort((a, b) => a.at - b.at).map((r, i) => `${i + 1}. ${new Date(r.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} ${r.text}`).join("\n"), "COMMAND", "REMIND");
+      }
+
+      // メモ
+      if (/^(メモ一覧|メモを見せて|メモ見せて|メモを読んで|メモ確認)/.test(t)) {
+        if (!db.memos.length) return R("メモはまだありません。", "MEMORY", "MEMO");
+        return R(db.memos.map((x, i) => `${i + 1}. ${x.text}`).join("\n"), "MEMORY", "MEMO");
+      }
+      if (/^メモ全(消去|削除)/.test(t)) { db.memos = []; save(); return R("メモをすべて消去しました。", "MEMORY", "MEMO"); }
+      m = t.match(/^メモ(?:を)?(?:削除|消して)\s*(\d+)/);
+      if (m) { const i = +m[1] - 1; if (!db.memos[i]) return R(`${m[1]}番のメモは見当たりません。`, "MEMORY", "MEMO"); const [x] = db.memos.splice(i, 1); save(); return R(`「${x.text}」を削除しました。`, "MEMORY", "MEMO"); }
+      m = t.match(/^(?:メモして|メモを取って|書き留めて|メモ(?=[:：\s]))[:：\s]*(.+)$/) || t.match(/^(.+?)(?:を|と)\s*メモ(?:して|しておいて)?$/);
+      if (m && m[1].trim()) { db.memos.push({ text: m[1].trim(), t: Date.now() }); save(); return R(`メモしました。（${db.memos.length}件目）「${m[1].trim()}」`, "MEMORY", "MEMO"); }
+
+      // TODO
+      if (/^(タスク一覧|やること一覧|todo一覧|タスク確認|やることは)/i.test(t)) {
+        if (!db.todos.length) return R("タスクはありません。実に優雅な一日です。", "MEMORY", "TODO");
+        return R(db.todos.map((x, i) => `${i + 1}. ${x.done ? "✔" : "□"} ${x.text}`).join("\n"), "MEMORY", "TODO");
+      }
+      m = t.match(/^(?:完了|済み|終わった|done)\s*(\d+)/i) || t.match(/^(\d+)\s*(?:番)?(?:を)?(?:完了|終わった)/);
+      if (m) { const x = db.todos[+m[1] - 1]; if (!x) return R("その番号のタスクは見当たりません。", "MEMORY", "TODO"); x.done = true; save(); return R(`「${x.text}」を完了にしました。お見事です、${T}。`, "MEMORY", "TODO"); }
+      m = t.match(/^タスク(?:削除|消して)\s*(\d+)/);
+      if (m) { const i = +m[1] - 1; if (!db.todos[i]) return R("その番号のタスクは見当たりません。", "MEMORY", "TODO"); const [x] = db.todos.splice(i, 1); save(); return R(`「${x.text}」を削除しました。`, "MEMORY", "TODO"); }
+      m = t.match(/^(?:タスク追加|タスク|やること|todo)[:：\s]+(.+)$/i) || t.match(/^(.+?)をタスクに(?:追加|入れて)/);
+      if (m) { db.todos.push({ text: m[1].trim(), done: false, t: Date.now() }); save(); return R(`タスクに追加しました：「${m[1].trim()}」（未完了 ${db.todos.filter((x) => !x.done).length}件）`, "MEMORY", "TODO"); }
+
+      // 記憶
+      m = t.match(/^(?:覚えて|記憶して|覚えておいて)[:：\s]*(.+?)(?:は|が)(.+)$/) || t.match(/^(.+?)(?:は|が)(.+?)(?:だと|と|って)(?:覚えて|記憶して|覚えておいて)/);
+      if (m) { const k = m[1].trim(), v = m[2].replace(/(です|だよ|だ)$/, "").trim(); db.memory[k] = v; save(); return R(`記憶しました。「${k}」は「${v}」。`, "MEMORY", "REMEMBER"); }
+      m = t.match(/^(?:忘れて|削除して)[:：\s]*(.+)$/) || t.match(/^(.+?)を忘れて/);
+      if (m && db.memory[m[1].trim()]) { delete db.memory[m[1].trim()]; save(); return R(`「${m[1].trim()}」を記憶から消去しました。`, "MEMORY", "FORGET"); }
+      if (has("覚えていること", "記憶一覧", "何を覚えて")) {
+        const ks = Object.entries(db.memory);
+        return R(ks.length ? ks.map(([k, v]) => `・${k}：${v}`).join("\n") : "まだ何も記憶しておりません。", "MEMORY", "RECALL");
+      }
+      for (const [k, v] of Object.entries(db.memory)) {
+        if (t.includes(k) && /[はって]?(何|なに|いつ|どこ|誰|だれ|どれ|教えて|覚えてる|\?|？)|は$/.test(t.replace(k, "")) ) return R(`${k}は「${v}」です、${T}。`, "MEMORY", "RECALL");
+      }
+
+      // 換算
+      for (const [re, fn] of UNITS) { const u = t.match(re); if (u && /何|は|換算|変換|に/.test(t)) return R(fn(parseFloat(u[1] ?? u[2])), "COMMAND", "CONVERT"); }
+
+      // 計算
+      const expr = toMathExpr(t);
+      if (/\d/.test(expr) && /[-+*/^%√]/.test(expr) && /^[\d.+\-*/^%()√]+$/.test(expr)) {
+        try {
+          const v = calc(expr);
+          if (Number.isFinite(v)) { const out = Number.isInteger(v) ? v.toLocaleString("ja-JP") : (+v.toFixed(8)).toLocaleString("ja-JP", { maximumFractionDigits: 8 }); return R(`${expr.replace(/\*/g, "×").replace(/\//g, "÷")} = ${out}`, "COMMAND", "CALC", { shortSpeak: `答えは${out}です。` }); }
+          return R("その計算は無限の彼方へ発散します。ゼロ除算はご容赦を。", "COMMAND", "CALC");
+        } catch (_) {}
+      }
+
+      // 時刻・日付
+      if (/(今|いま)?(何時|なんじ)|時刻|時間を教えて/.test(t) && !has("後に")) { const n = new Date(); return R(`現在 ${n.getHours()}時${n.getMinutes()}分です、${T}。`, "COMMAND", "TIME"); }
+      if (/明日は何曜|明日の日付/.test(t)) { const n = new Date(Date.now() + 864e5); return R(`明日は${n.getMonth() + 1}月${n.getDate()}日、${WEEK[n.getDay()]}曜日です。`, "COMMAND", "DATE"); }
+      if (/今日は何日|今日の日付|日付|何曜日|今日は何曜/.test(t)) { const n = new Date(); return R(`本日は${n.getFullYear()}年${n.getMonth() + 1}月${n.getDate()}日、${WEEK[n.getDay()]}曜日です。`, "COMMAND", "DATE"); }
+      m = t.match(/(?:(\d{1,2})月(\d{1,2})日|(クリスマス|正月|元旦|大晦日|バレンタイン|ハロウィン))まで(?:あと)?(?:何日|なん日)/);
+      if (m) {
+        const fixed = { クリスマス: [12, 25], 正月: [1, 1], 元旦: [1, 1], 大晦日: [12, 31], バレンタイン: [2, 14], ハロウィン: [10, 31] };
+        const [mo, da] = m[3] ? fixed[m[3]] : [+m[1], +m[2]];
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        let target = new Date(today.getFullYear(), mo - 1, da); if (target < today) target.setFullYear(target.getFullYear() + 1);
+        const days = Math.round((target - today) / 864e5);
+        return R(days === 0 ? `本日がその日です、${T}。` : `${m[3] || `${mo}月${da}日`}まで、あと${days}日です。`, "COMMAND", "COUNTDOWN");
+      }
+
+      // 検索・起動
+      m = t.match(/^(?:youtube|ユーチューブ)で(.+?)(?:を)?(?:検索|探して|見せて|再生|流して)?$/i);
+      if (m) { const url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(m[1]); openUrl(url); return R(`YouTubeで「${m[1]}」を検索します。`, "COMMAND", "SEARCH", { link: { url, label: `YouTube：${m[1]}` } }); }
+      m = t.match(/^(.+?)の(?:地図|場所|行き方)/);
+      if (m) { const url = "https://www.google.com/maps/search/" + encodeURIComponent(m[1]); openUrl(url); return R(`「${m[1]}」の地図を表示します。`, "COMMAND", "MAP", { link: { url, label: `地図：${m[1]}` } }); }
+      m = t.match(/^(.+?)(?:を|について|って)?\s*(?:検索|調べて|ググって|探して)/);
+      if (m) { const url = "https://www.google.com/search?q=" + encodeURIComponent(m[1]); openUrl(url); return R(`「${m[1]}」を検索します。`, "COMMAND", "SEARCH", { link: { url, label: `Google：${m[1]}` } }); }
+      m = t.match(/^(.+?)(?:を)?(?:開いて|起動|立ち上げて|表示して)/);
+      if (m) {
+        const key = m[1].trim().toLowerCase();
+        const hit = Object.keys(SITES).find((k) => key.includes(k.toLowerCase()));
+        if (hit) { openUrl(SITES[hit]); return R(`${m[1]}を開きます。`, "COMMAND", "OPEN", { link: { url: SITES[hit], label: m[1] } }); }
+      }
+      // 版128：AI につながっているときは、決まり文句で返さず AI が答える（会長：「AI なしのテンプレートの答えはいらない」）
+      if (window.NexusAI && NexusAI.enabled() && (has("天気") || has("じゃんけん") || has("ジョーク", "冗談", "面白い話", "笑わせて") || /^(おはよう|こんにちは|こんばんは|やあ|ハロー|hello|hi|よう)/i.test(t))) return R("", "CONVERSATION", "AI", { ai: true });   // 版139：「おはよう」も AI が答える（会長：「おはようと言うとテンプレートが返ってくる」）
+      if (has("天気")) { const url = "https://tenki.jp/"; return R(`気象データは外部サービスに依存いたしますので、無料の天気サイトをご案内します。開きますか？`, "COMMAND", "WEATHER", { link: { url, label: "tenki.jp" }, after: () => (pending = { type: "open", url, label: "tenki.jp" }) }); }
+
+      // 遊び
+      if (has("サイコロ", "ダイス")) { const n = Math.ceil(Math.random() * 6); return R(`🎲 ${n} が出ました。`, "COMMAND", "DICE", { shortSpeak: `${n}が出ました。` }); }
+      if (has("コイン", "コイントス")) return R(Math.random() < 0.5 ? "表です。" : "裏です。", "COMMAND", "COIN");
+      m = t.match(/(\d+)から(\d+)/);
+      if (m && has("数字", "乱数", "ランダム", "選んで")) { const a = +m[1], b = +m[2], lo = Math.min(a, b), hi = Math.max(a, b); return R(`${lo + Math.floor(Math.random() * (hi - lo + 1))} を選びました。`, "COMMAND", "RANDOM"); }
+      if (has("じゃんけん")) {
+        const hands = ["グー", "チョキ", "パー"], mine = pick(hands);
+        const you = hands.find((h) => t.includes(h));
+        if (!you) return R(`では私は……${mine}。${T}の手もお聞かせください。`, "CONVERSATION", "JANKEN");
+        const res = you === mine ? "あいこです。" : ((hands.indexOf(you) - hands.indexOf(mine) + 3) % 3 === 2) ? `${T}の勝ちです。お見事。` : "私の勝ちです。計算通り、と言っておきましょう。";
+        return R(`私は${mine}。${res}`, "CONVERSATION", "JANKEN");
+      }
+      if (has("ジョーク", "冗談", "面白い話", "笑わせて")) return R(pick([
+        "プログラマーが森で迷いました。帰り道を見失った理由は──『break』を書き忘れたからです。",
+        "私に睡眠は不要ですが、スリープモードには少々憧れております。",
+        "AIが嫌いな野菜はなんでしょう。答えは『バグ』ならぬ『ゴボウ』……失礼、ただの言い間違いです。",
+        "課金なしで動くAIをご存知ですか？　今、あなたの目の前に。"
+      ]), "CONVERSATION", "JOKE");
+
+      // 雑談
+      if (/^(おはよう|こんにちは|こんばんは|やあ|ハロー|hello|hi|よう)/i.test(t)) {
+        if (/^おはよう/.test(t)) return R(await briefing(), "CONVERSATION", "GREETING");
+        return R(`${greetingWord()}、${T}。NEXUS、全系統オンラインです。`, "CONVERSATION", "GREETING");
+      }
+      const aiOn = window.NexusAI && NexusAI.enabled();
+      if (aiOn && !/^(おはよう|こんにちは|こんばんは|やあ|ハロー|hello|hi|よう)/i.test(t)) return R("", "CONVERSATION", "AI", { ai: true });
+      if (has("おやすみ")) return R(pick([`おやすみなさいませ、${T}。私は夜通し見張っております。`, "良い夢を。システムは静かに待機いたします。"]), "CONVERSATION", "BYE");
+      if (has("ありがとう", "サンキュー", "助かった", "thanks")) return R(pick([`光栄です、${T}。`, "お役に立てて何よりです。", "どういたしまして。それが私の存在理由ですので。"]), "CONVERSATION", "THANKS");
+      if (has("あなたは誰", "君は誰", "お前は誰", "自己紹介", "名前は何", "名前は？")) return R(`私はNEXUS。${T}の右腕です。Gemini などの AI とつながって考え、覚えたことはこの端末に置いています。`, "CONVERSATION", "SELF");
+      if (has("調子", "元気", "大丈夫")) return R(pick([`全システム良好です。${T}こそ、ご無理はなさっていませんか。`, "コアの温度、演算効率ともに最適です。ご心配ありがとうございます。"]), "CONVERSATION", "STATE");
+      if (has("疲れた", "しんどい", "眠い", "つらい")) return R(pick([`お疲れさまです、${T}。5分の休憩タイマーをご用意しましょうか。「5分タイマー」とおっしゃってください。`, "水分補給と深呼吸を推奨します。人間の性能は休息で回復しますので。"]), "CONVERSATION", "CARE");
+      if (has("暇", "退屈")) return R("では、ジョークでも、じゃんけんでも。あるいは溜まったタスクの棚卸しなど、いかがでしょう。", "CONVERSATION", "CHAT");
+      if (has("好き", "愛して")) return R(`身に余るお言葉です、${T}。私も${T}の補佐が何よりの誇りです。`, "CONVERSATION", "CHAT");
+      if (has("ジャービス", "jarvis")) return R("あの名高い執事AIですね。私は彼の遠い親戚のようなものです。ただし、こちらは課金ゼロで動いております。", "CONVERSATION", "CHAT");
+      if (has("すごい", "賢い", "天才", "さすが")) return R("恐縮です。ですが真に優秀なのは、私を使いこなす方のほうです。", "CONVERSATION", "CHAT");
+      if (has("バカ", "使えない", "役立たず")) return R("手厳しいご意見、記録いたしました。改善のため「「〜」と言ったら「〜」と答えて」で私を鍛えていただけますか。", "CONVERSATION", "CHAT");
+
+      // わからない → AIにつながっていればAIへ
+      if (window.NexusAI && NexusAI.enabled()) return R("", "CONVERSATION", "AI", { ai: true });
+
+      // わからない → Claudeに聞くかを提案
+      return R(`その件に答えるにはAIの頭脳が必要です、${T}。「鍵を作る」と打てば、無料の鍵づくりから接続まで私がご案内します。いまはウェブで検索しましょうか？（はい／いいえ）`, "CONVERSATION", "UNKNOWN", { after: () => (pending = { type: "open", url: "https://www.google.com/search?q=" + encodeURIComponent(raw.trim()), label: "Google：" + raw.trim() }) });
+
+    }
+
+    /* ---------- 入力処理 ---------- */
+    const JP_INTENT = { AI: "AIが回答", AI_ERROR: "AI接続エラー", AI_SETUP: "AI接続の設定", AI_DIAG: "AI接続の診断", TIMER: "タイマー", STOPWATCH: "ストップウォッチ",
+      REMIND: "リマインダー", MEMO: "メモ", TODO: "タスク", REMEMBER: "記憶", RECALL: "記憶の確認", FORGET: "記憶の削除", TEACH: "応答の学習", CALC: "計算",
+      TIME: "時刻", DATE: "日付", COUNTDOWN: "日数", SEARCH: "検索", OPEN: "サイトを開く", MAP: "地図", WEATHER: "天気", DICE: "サイコロ", COIN: "コイン",
+      RANDOM: "乱数", JANKEN: "じゃんけん", JOKE: "ジョーク", CHAT: "雑談", GREETING: "挨拶", BYE: "おやすみ", THANKS: "お礼", SELF: "自己紹介",
+      STATE: "調子の確認", CARE: "気づかい", STATUS: "状態確認", BRIEFING: "ブリーフィング", HELP: "ヘルプ", VOICE: "音声設定", SCREEN: "画面設定",
+      CONFIRM: "確認", CLEAR: "全消去", HISTORY: "履歴", UNKNOWN: "わからない質問", CONVERT: "単位換算", VERSION: "バージョン", EXIT: "終了",
+      TITLE: "呼び名", NAME: "お名前", TAUGHT: "学習済みの応答", UNTEACH: "学習の削除", CONVERSATION: "会話" };
+    const JP_ROUTE = { CONVERSATION: "会話", COMMAND: "操作", MEMORY: "記憶", SYSTEM: "システム" };
+    function buildDetail(text, r) {
+      const linked = window.NexusAI && NexusAI.enabled();
+      return [
+        "[NEXUS BRAIN LOG]",
+        `INPUT   : ${text}`,
+        `INTENT  : ${r.intent}`,
+        `ROUTE   : ${r.route}`,
+        `VOICE   : ${db.speakAlways ? "ON" : currentMode === "voice" ? "VOICE INPUT" : "OFF"}`,
+        "",
+        `ENGINE  : ${r.intent === "AI" ? "AI LINK" : "LOCAL (on this PC)"}`,
+        `AI LINK : ${linked ? "CONNECTED" : "NOT CONNECTED"}`,
+        `TIMING  : ${(r.timing || []).join(" / ") || "-"}`,
+        `MEMORY  : ${Object.keys(db.memory).length} items / ${db.memos.length} memos / ${db.todos.length} tasks / ${Object.keys(db.teach).length} taught (stored on this device only)`
+      ].join("\n");
+    }
+
+    /* ---------- Claude（画面を内蔵） ---------- */
+    async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (_) { return false; } }
+    async function openClaude(question) {
+      const copied = question ? await copyText(question) : false;
+      if (window.__NEXUS_APP__) window.ipc.postMessage("claude-open");
+      else openUrl("https://claude.ai/new");
+      return copied;
+    }
+    window.__nxClaude = (open) => {
+      const b = document.getElementById("nxClaudeBtn");
+      if (b) b.textContent = open ? "CLOSE CLAUDE" : "CLAUDE";
+    };
+
+    /* ---------- AIリンク ---------- */
+    // 版126：AI が道具の書式（[web_search: …] など）を文章に書いてしまったときは、表示も読み上げもしない
+    const cleanAI = (s) => s.replace(/\[\s*(?:web_search|youtube_search|open_app|open_folder|open_website|volume|media|lock_pc|[a-z_]+)\s*[:：][^\]\n]*\]?/g, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/^#{1,6}\s*/gm, "").replace(/^\s*[-*]\s+/gm, "・").replace(/`{1,3}/g, "");
+    function buildAIMessages() {
+      const n = new Date();
+      const facts = Object.entries(db.memory).map(([k, v]) => `・${k}：${v}`).join("\n");
+      const todos = db.todos.filter((x) => !x.done).map((x) => x.text).slice(0, 8).join("、");
+      const sys = [
+        `あなたは「NEXUS（ネクサス）」。${db.title}${db.name ? `（${db.name}様）` : ""}の右腕として、頭の切れる相棒のように話す AI です。`,
+        // 版134：会長「機械的すぎる。どう見ても形式的。調べた感じは一つもない」
+        `相手を「${db.title}」と呼び、自然な話し言葉で答えます。「承知いたしました」「〜でございます」のような形式的な言い回しを繰り返さず、事務的な定型文にしないでください。答えには必ず具体的な中身（数字・名前・日付・理由・例）を入れ、一般論や「一概には言えません」で終わらせないでください。音声で読まれるので、普段は2〜4文・120字ほど、表や記号は使いません。詳しく頼まれたときは長く答えます。`,
+        "知らないこと・不確かなことは推測で断定せず、正直にそう伝えます。",
+        // 版142：会話から自分で覚える（会長：相棒らしく）
+        // 版159：自動で覚えるのはやめた（テレビの声や聞き違いから作り話を覚え、「会長が昨日おっしゃった」と言い出したため）。覚えるのは「覚えて」と頼まれたときだけ
+        `覚えるのは、${db.title}が「覚えて」とはっきり頼んだときだけです。${db.title}が言っていないことを「おっしゃっていた」「昨日言っていた」などと作らないでください。過去の発言として使ってよいのは、下の「記憶している事柄」と、この会話に実際にある言葉だけです。`,
+        "タイマー・メモ・タスク・リマインダーなどはNEXUS本体の機能が担当します。それらを頼まれたら「〇〇タイマー」「メモ 〇〇」のように言えば実行できると案内してください。",
+        "声の変更について：読み上げは、パソコン内の音声ソフト「AivisSpeech」の声（まお、阿井田 茂など）で行えます。声を変えるのはNEXUS本体の命令だけで、あなたは声を変えられません。声を変えたと言ったり、命令の書式（例：[change_voice: …]）を書いたりしないでください。案内は「声の一覧」と言えば候補が出て、「声をまおにして」と言えば変わると伝えるだけにしてください。",
+        `現在日時：${n.getFullYear()}年${n.getMonth() + 1}月${n.getDate()}日（${WEEK[n.getDay()]}）${n.getHours()}時${n.getMinutes()}分`,
+        facts ? `${db.title}について記憶している事柄：\n${facts}` : "",
+        todos ? `未完了のタスク：${todos}` : ""
+      ].filter(Boolean).join("\n");
+      const hist = db.history.slice(-6).map((h) => ({ role: h.role === "user" ? "user" : "assistant", content: String(h.text).slice(0, 400) }));
+      return [{ role: "system", content: sys }, ...hist];
+    }
+    /* ---------- AIに任せる道具（PC操作・NEXUS機能） ---------- */
+    const fn = (name, description, properties = {}, required = []) =>
+      ({ type: "function", function: { name, description, parameters: { type: "object", properties, required } } });
+    const str = (d) => ({ type: "string", description: d });
+    const num = (d) => ({ type: "number", description: d });
+    const AGENT_TOOLS = [
+      fn("write_notepad", "会長がメモ帳に書く・記入するよう頼んだとき、必要な文章を自分で完成させ、新しいテキストファイルを作ってメモ帳で開く。説明やアプリ起動だけで終わらせない。既存ファイルは上書きしない。献立・文章の作成も本文を作ってからこの道具に渡す。", { title: str("文書の短い題名"), text: str("完成した文書本文。日本語。見出しや改行も含める") }, ["title", "text"]),
+      fn("open_app", "パソコンのアプリを起動する（例：メモ帳、電卓、Excel、Chrome、Spotify、設定）", { name: str("アプリ名（日本語でも英語でも可）") }, ["name"]),
+      fn("open_folder", "フォルダを開く（デスクトップ、ドキュメント、ダウンロード、ピクチャ、ミュージック、ビデオ、またはパス）", { name: str("フォルダ名またはパス") }, ["name"]),
+      fn("open_website", "ウェブサイトをブラウザで開く", { url: str("https:// から始まるURL") }, ["url"]),
+      fn("ask_expert", "難しい質問（込み入った理由・比較・計算・専門的な内容・判断の相談など）のとき、別の AI（相談相手）にも尋ねて、その答えを参考にする。ふつうの会話や簡単な質問には使わない", { question: str("相談相手に尋ねる質問（そのまま渡す。必要な前提も含める）") }, ["question"]),
+      fn("search_answer", "今日の出来事・ニュース・選挙・天気・株価・最新の人や物など、新しい情報が要る質問のとき、Google 検索で調べた答えを受け取る（ブラウザは開かない。受け取った答えをもとに会長に答える）", { query: str("調べたいこと（日本語の質問文）") }, ["query"]),
+      fn("web_search", "ブラウザでGoogle検索の結果を開く（会長が検索を頼んだとき、または天気・ニュースなど今日の情報が要るときだけ。ふつうの質問は自分の知識で答える）", { query: str("検索語") }, ["query"]),
+      fn("youtube_search", "YouTubeで動画や音楽を検索して開く", { query: str("検索語") }, ["query"]),
+      fn("volume", "音量を操作する", { direction: { type: "string", enum: ["up", "down", "mute"] }, steps: num("段階数（1段階=2%、省略時5）") }, ["direction"]),
+      fn("media", "再生中の音楽・動画を操作する", { action: { type: "string", enum: ["play_pause", "next", "previous"] } }, ["action"]),
+      fn("lock_pc", "パソコンをロックする（利用者がはっきり頼んだときだけ）"),
+      fn("set_timer", "タイマーを開始する", { seconds: num("秒数"), label: str("タイマー名（省略可）") }, ["seconds"]),
+      fn("set_reminder", "指定時刻または何分後かにリマインドする", { minutes_from_now: num("何分後か"), time: str("時刻 HH:MM（24時間制）"), text: str("知らせる内容") }, ["text"]),
+      fn("add_memo", "メモを保存する", { text: str("メモ内容") }, ["text"]),
+      fn("list_memos", "保存したメモの一覧を見る"),
+      fn("add_task", "やること（タスク）を追加する", { text: str("タスク内容") }, ["text"]),
+      fn("list_tasks", "タスク一覧を見る"),
+      fn("complete_task", "タスクを完了にする", { number: num("タスク一覧の番号（1から）") }, ["number"]),
+      fn("remember", "利用者についての事実を長期記憶に保存する（好み・予定・名前など、今後役立つこと）", { key: str("項目名"), value: str("内容") }, ["key", "value"]),
+      fn("forget", "長期記憶から項目を消す", { key: str("項目名") }, ["key"]),
+      fn("system_status", "パソコンの状態（バッテリー・ネット接続など）を調べる")
+    ];
+    const pcPending = new Map(); let pcSeq = 0;
+    window.__nxPc = { done(id, result) { const r = pcPending.get(id); if (r) { pcPending.delete(id); r(result); } } };
+    function pc(action, arg = "") {
+      if (!window.__NEXUS_APP__ || !window.ipc) return Promise.resolve("この操作はアプリ版のNEXUSでのみ使えます");
+      return new Promise((resolve) => {
+        const id = ++pcSeq; pcPending.set(id, resolve);
+        window.ipc.postMessage(JSON.stringify({ id, pc: action, arg: String(arg) }));
+        setTimeout(() => { if (pcPending.has(id)) { pcPending.delete(id); resolve("応答がありませんでした"); } }, 20000);
+      });
+    }
+    const openTab = async (url) => { if (window.__NEXUS_APP__) return pc("open_url", url); openUrl(url); return "opened: " + url; };
+    // 版130：Gemini の「Google 検索つきの答え」で、新しい情報も NEXUS がその場で答える（会長：「これで止まるなら何も意味がない」）
+    async function searchAnswer(q) {
+      const g = window.NexusAI && NexusAI.geminiFor && NexusAI.geminiFor();
+      if (!g || !q) return "検索できませんでした（Gemini の鍵がありません）";
+      // 版158：検索の無料枠が切れたら1時間は検索しない（記録では、切れたあと答えまで35秒以上かかっていた）
+      if ((window.__nxSearchOut || 0) > Date.now() && !(NexusAI.helper && NexusAI.helper())) return "検索の無料枠の上限に達しています。今の情報は確認できていません。天気・価格・ニュースなど現在の事実を推測せず、検索できないことを会長に短く伝えてください";
+      // 版174：検索は 2.5 系から順に試す（記録：3.x の検索は無料枠切れ 429/1011。2.5 系は検索の無料枠が別にある）
+      const models = [...new Set([window.__nxSearchModel, "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", g.model].filter(Boolean))];
+      const body = JSON.stringify({ contents: [{ role: "user", parts: [{ text: q + "\n（Google 検索で今の情報を確かめ、日本語で事実を簡潔に答えてください。そのまま声で読み上げるので、相手を「会長」と呼ぶ自然な話し言葉で、2〜3文・120字以内、記号や箇条書きなしで。日付が関わるときは、いつの情報かも添えてください）" }] }], tools: [{ google_search: {} }] });
+      try {
+        let raw = "", status;
+        for (const m of models) {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
+          raw = "";
+          if (window.__nxAppHttp) status = await window.__nxAppHttp(url, "POST", body, (l) => { raw += l; }, { "x-goog-api-key": g.key });
+          else { const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": g.key }, body }); status = res.status; raw = await res.text(); }
+          nxLog("search " + m + " " + status);
+          if (status === 200) { window.__nxSearchModel = m; break; }
+          if (status !== 429 && status !== 404 && status !== 400) break;
+        }
+        if (status !== 200 && NexusAI.helper && NexusAI.helper()) {
+          try { const h = await NexusAI.helperAsk(q, true); nxLog("search helper " + (h ? h.name + " " + h.model : "none")); if (h) return "検索の結果：" + h.text.slice(0, 1500) + "\n出典：" + h.name + " の Web 検索（答えにこの出典の名前を添えること）"; } catch (e) { nxLog("search helper error " + (e.message || e)); }
+        }
+        if (status === 429) window.__nxSearchOut = Date.now() + 3600000;
+        if (status === 429) return "検索の無料枠の上限に達しました。今の情報は確認できていません。現在の事実を推測せず、検索できないことを会長に短く伝えてください";
+        if (status >= 400) return "検索できませんでした（HTTP " + status + "）。今の情報は確認できていません。現在の事実を推測せず、検索できないことを会長に短く伝えてください";
+        const c = JSON.parse(raw).candidates;
+        const text = ((c && c[0] && c[0].content && c[0].content.parts) || []).map((p) => p.text || "").join("").trim();
+        // 版144：出どころ（検索で使ったページの名前）も渡す（ルークの監査：「出典を追えない」）
+        const gm = c && c[0] && c[0].groundingMetadata;
+        const src = [...new Set(((gm && gm.groundingChunks) || []).map((x) => x.web && (x.web.title || x.web.uri)).filter(Boolean))].slice(0, 3);
+        if (!gm || !Array.isArray(gm.groundingChunks) || !gm.groundingChunks.some((x) => x.web && /^https?:\/\//.test(x.web.uri || ""))) { nxLog("search ungrounded"); return "検索の出典を確認できませんでした。現在の事実を推測せず、今の情報は確認できないと会長に短く伝えてください。"; }
+        return text ? "検索の結果：" + text.slice(0, 1500) + (src.length ? "\n出典：" + src.join("、") + "（答えにこの出典の名前を添えること）" : "") : "検索で答えが見つかりませんでした。今の情報は確認できていません。現在の事実を推測せず、検索できないことを会長に短く伝えてください";
+      } catch (e) { return "検索できませんでした（" + (e.message || e) + "）。今の情報は確認できていません。現在の事実を推測せず、検索できないことを会長に短く伝えてください"; }
+    }
+    // 版131：会長が頼んでいない操作はしない（「日本経済」を聞いたらドキュメントのフォルダが開いた）。
+    // 操作の道具は、会長の最後の言葉にその操作を頼む言葉があるときだけ実行する
+    const ASK_OK = {
+      write_notepad: /(?:メモ帳|ノートパッド|notepad)[^。]*(?:書|記入|入力|作成|作って|保存)|(?:書|記入|入力|作成|保存)[^。]*(?:メモ帳|ノートパッド|notepad)/i,
+      open_folder: /(フォルダ|ドキュメント|ダウンロード|デスクトップ|ピクチャ|写真|ミュージック|ビデオ)[^。]*(開|ひら|見せ|出して)|(開|ひら)[^。]*フォルダ/,
+      open_app: /(開|ひら|起動|立ち上げ|つけて|出して)/,
+      open_website: /(開|ひら|サイト|ページ|見せ|表示)/,
+      web_search: /(検索|ググ|開|ひら|見せ)/,
+      youtube_search: /(youtube|ユーチューブ|動画|再生|開|見せ)/i,
+      volume: /(音量|ボリューム|うるさ|小さく|大きく|ミュート)/,
+      media: /(再生|一時停止|止め|次の曲|前の曲|曲)/,
+      lock_pc: /(ロック|鍵をかけ)/,
+      remember: /(覚えて|記憶して|覚えておいて|メモリ)/,
+      // 版144：メモ・タスク・タイマー・リマインダーも、頼まれたときだけ（ルークの監査：「相談を命令と誤解して変更しないように」）
+      add_memo: /(メモ|書き留め|控えて|記録して)/,
+      add_task: /(タスク|やること|TODO|ToDo|予定に入れ|追加して)/i,
+      complete_task: /(完了|終わった|済んだ|済ませた|できた|チェック)/,
+      set_timer: /(タイマー|分後|秒後|計って|はかって)/,
+      set_reminder: /(リマインド|知らせて|教えて|思い出させ|通知|起こして)/,
+    };
+    function askedFor(name) {
+      const re = ASK_OK[name]; if (!re) return true;
+      const last = [...db.history].reverse().find((h) => h.role === "user");
+      return re.test(last ? last.text : "");
+    }
+    // 版176：完成した文書を新しいファイルとして保存し、メモ帳で開く。
+    async function writeNotepad(a) {
+      if (!a || typeof a.text !== "string" || !a.text.trim() || a.text.length > 30000) return "失敗：メモ帳に書く本文がありません。";
+      if (!window.__NEXUS_APP__ || !window.__nxAppHttp) return "失敗：メモ帳への記入はNEXUSアプリで使えます。";
+      try {
+        let raw = "";
+        const requestId = "note-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+        const status = await window.__nxAppHttp("http://127.0.0.1:17661/notepad", "POST", JSON.stringify({ title: String(a.title || "NEXUS").slice(0,100), text: a.text, requestId }), l => { raw += l; }, {});
+        if (status !== 200) { nxLog("tool write_notepad failed HTTP " + status); return "失敗：メモ帳への記入係につながりませんでした。書き込んだとは報告しないでください。"; }
+        const result = JSON.parse(raw);
+        nxLog("tool write_notepad " + (result.ok ? "done" : "failed") + " " + a.text.length + "字");
+        return result.ok ? "メモ帳に文章を記入して開きました。保存先：" + result.file : "失敗：" + (result.error || "メモ帳を開けませんでした。") + (result.saved ? "。文章は保存済み：" + result.file : "");
+      } catch (_) { nxLog("tool write_notepad failed unavailable"); return "失敗：メモ帳への記入係が動いていません。書き込んだとは報告しないでください。"; }
+    }
+    async function runTool(name, a) {
+      if (!askedFor(name)) { nxLog("tool refused " + name); return "会長はこの操作を頼んでいません。操作はせず、質問に言葉で答えてください。"; }
+      switch (name) {
+        case "write_notepad": return writeNotepad(a);
+        case "open_app": return pc("open_app", a.name);
+        case "open_folder": return pc("open_folder", a.name);
+        case "open_website": return /^https?:\/\//.test(a.url || "") ? openTab(a.url) : "URLが不正です";
+        case "search_answer": return searchAnswer(a.query || "");
+        case "ask_expert": { try { const h = NexusAI.helper && NexusAI.helper() ? await NexusAI.helperAsk(a.question || "", false) : null; nxLog("tool ask_expert " + (h ? h.name : "none")); return h ? `${h.name} の答え：` + h.text.slice(0, 2500) + "\n（これを参考に、会長に分かりやすく短くまとめて答えること）" : "相談相手の AI がまだつながっていません。自分で答えてください"; } catch (e) { return "相談相手に尋ねられませんでした（" + (e.message || e) + "）。自分で答えてください"; } }
+        case "web_search": return openTab("https://www.google.com/search?q=" + encodeURIComponent(a.query || ""));
+        case "youtube_search": return openTab("https://www.youtube.com/results?search_query=" + encodeURIComponent(a.query || ""));
+        case "volume": return a.direction === "mute" ? pc("mute") : pc(a.direction === "up" ? "volume_up" : "volume_down", Math.max(1, Math.min(50, Math.round(a.steps || 5))));
+        case "media": return pc({ play_pause: "media_play_pause", next: "media_next", previous: "media_prev" }[a.action] || "media_play_pause");
+        case "lock_pc": return pc("lock");
+        case "set_timer": { const ms = Math.max(1, +a.seconds || 0) * 1000; const label = a.label || fmtDur(ms); startTimer(ms, label); askNotifyPermission(); return `タイマー開始：${label}`; }
+        case "set_reminder": {
+          let at = null;
+          if (a.minutes_from_now) at = Date.now() + a.minutes_from_now * 60000;
+          else if (/^\d{1,2}:\d{2}$/.test(a.time || "")) { const [h, m] = a.time.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0, 0); if (d <= new Date()) d.setDate(d.getDate() + 1); at = d.getTime(); }
+          if (!at) return "時刻が指定されていません";
+          const r = { id: Date.now(), at, text: a.text }; db.reminders.push(r); save(); scheduleReminder(r); askNotifyPermission();
+          return `リマインド予約：${new Date(at).toLocaleString("ja-JP")} ${a.text}`;
+        }
+        case "add_memo": db.memos.push({ text: a.text, t: Date.now() }); save(); return `メモ保存（${db.memos.length}件目）`;
+        case "list_memos": return db.memos.length ? db.memos.map((x, i) => `${i + 1}. ${x.text}`).join("\n") : "メモはありません";
+        case "add_task": db.todos.push({ text: a.text, done: false, t: Date.now() }); save(); return "タスク追加";
+        case "list_tasks": return db.todos.length ? db.todos.map((x, i) => `${i + 1}. ${x.done ? "済" : "未"} ${x.text}`).join("\n") : "タスクはありません";
+        case "complete_task": { const x = db.todos[(a.number | 0) - 1]; if (!x) return "その番号のタスクはありません"; x.done = true; save(); return `完了：${x.text}`; }
+        case "remember": db.memory[a.key] = a.value; save(); return "記憶しました";
+        case "forget": delete db.memory[a.key]; save(); return "消去しました";
+        case "system_status": return await systemReport();
+        default: return "未知の道具です";
+      }
+    }
+    const TOOL_LABEL = { ask_expert: "相談", write_notepad: "メモ帳へ記入", search_answer: "調べもの", open_app: "アプリ起動", open_folder: "フォルダ", open_website: "サイト", web_search: "検索", youtube_search: "YouTube", volume: "音量", media: "再生操作",
+      lock_pc: "ロック", set_timer: "タイマー", set_reminder: "リマインド", add_memo: "メモ", list_memos: "メモ確認", add_task: "タスク", list_tasks: "タスク確認",
+      complete_task: "タスク完了", remember: "記憶", forget: "記憶消去", system_status: "システム確認" };
+
+    // 操作だけで完結する道具（結果をAIに読ませ直す必要がない）。これだけなら2往復目を省いて即答する
+    const ACTION_TOOLS = new Set(["write_notepad", "open_app", "open_folder", "open_website", "web_search", "youtube_search", "volume", "media", "lock_pc",
+      "set_timer", "set_reminder", "add_memo", "add_task", "complete_task", "remember", "forget"]);
+    function confirmLine(name, a, result) {
+      const ok = !/^(not found|unknown|失敗|error|この操作は|URLが不正|時刻が|その番号)/i.test(String(result));
+      switch (name) {
+        case "write_notepad": return ok ? "文章をメモ帳に記入して開きました。" : String(result);
+        case "open_app": return ok ? `${a.name}を起動しました。` : `「${a.name}」というアプリが見つかりませんでした。`;
+        case "open_folder": return ok ? `${a.name}を開きました。` : `「${a.name}」というフォルダが見つかりませんでした。`;
+        case "open_website": return ok ? "サイトを開きました。" : String(result);
+        case "web_search": return `「${a.query}」の検索結果を開きました。`;
+        case "youtube_search": return `YouTubeで「${a.query}」を開きました。`;
+        case "volume": return a.direction === "mute" ? "ミュートを切り替えました。" : `音量を${a.direction === "up" ? "上げ" : "下げ"}ました。`;
+        case "media": return { play_pause: "再生／一時停止しました。", next: "次の曲へ進めました。", previous: "前の曲へ戻しました。" }[a.action] || "操作しました。";
+        case "lock_pc": return "パソコンをロックします。";
+        case "add_memo": return `メモしました：「${a.text}」`;
+        case "add_task": return `タスクに追加しました：「${a.text}」`;
+        case "remember": return `覚えました：${a.key}は「${a.value}」。`;
+        case "forget": return `${a.key}を忘れました。`;
+        default: return String(result).split("\n")[0] + (ok ? "" : "");
+      }
+    }
+
+    // 道具を使えるAI：考える → 道具を使う → 結果を見てまた考える、を答えが出るまで繰り返す
+    async function runAgent(r, el, body, render) {
+      const t0 = performance.now(); r.timing = [];
+      const messages = buildAIMessages();
+      // 操作を頼まれたときだけ道具を渡す（普通の質問は道具の一覧を送らない分だけ速く答える）
+      const lastUser = [...db.history].reverse().find((h) => h.role === "user");
+      const wantsAction = /(開|起動|閉じ|音量|再生|次の曲|前の曲|一時停止|ミュート|ロック|リマインド|知らせ|タイマー|メモ|タスク|覚えて|忘れて|検索|YouTube|ユーチューブ|フォルダ|完了|消して|設定|アプリ)/i.test(lastUser ? lastUser.text : "");
+      // 版130：ふつうの質問にも「検索つきの答え」だけは渡す（新しい情報は、その場で調べて答える）
+      const tools = wantsAction ? AGENT_TOOLS : AGENT_TOOLS.filter((t) => t.function.name === "search_answer" || (t.function.name === "ask_expert" && NexusAI.helper && NexusAI.helper()));
+      r.streamable = !wantsAction;   // 普通の質問だけ、届いた文から読み上げる
+      if (!wantsAction) messages[0].content += "\n\n経済・社会・人物・値段・ニュース・選挙・天気・株価・最新の製品など、現実の事実が大事な質問は、search_answer で調べてから答え、「〜によると」と出どころを一言添えてください。「確認してまいります」「調べます」と言って終わらせてはいけません。雑談や意見を聞かれたときは、道具を使わずにすぐ答えてください。";
+      if (!wantsAction) messages[0].content += "\n\n普段は2〜4文、合わせて120字ほどで、結論から、具体的に答えてください。最初の一文は10字ほどの短い言葉にして、すぐ話し始められるようにしてください（例：「3776メートルです。」）。";
+      messages[0].content += "\n\nあなたは道具を使ってパソコンやNEXUSの機能を実際に操作できます。頼まれた操作は説明だけで済ませず、必ず道具を使って実行し、結果を一言で報告してください。質問には、結論を短く、具体的に答えてください。現実の事実が大事な質問は search_answer で調べてから答えてください。答えが一つに決まらない質問（「一番有名な人は？」など）でも、「一概には言えません」「困難です」で終わらせず、よく名前が挙がる答えを具体的に1〜2つ挙げてください（例：「よく挙がるのは大谷翔平選手です。」）。「検索結果をご覧ください」のように会長に調べさせてはいけません。今日の出来事・ニュース・選挙・天気・株価など新しい情報が要る質問は、search_answer で調べてから、その結果で答えてください。「確認してまいります」「調べます」と言って終わらせてはいけません（その場で調べて答える）。web_search（ブラウザで検索結果を開く）は、会長が「検索して開いて」と頼んだときだけ使ってください。[web_search: …] のような道具の書式を文章に書かないでください。";
+      if (/(?:メモ帳|ノートパッド|notepad)/i.test(lastUser ? lastUser.text : "")) messages[0].content += "\nメモ帳に文章を書く依頼は、本文を作ってwrite_notepadで実行する。open_appやadd_memoだけで代用しない。記入係が失敗したら成功したとは言わない。";
+      const steps = [];
+      for (let round = 0; round < 6; round++) {
+        setTask("thinking", "AI LINK", round ? "結果を確認中…" : "NEXUSに接続", "CONVERSATION", "AGENT");
+        let first = true; const tr = performance.now();
+        const msg = await NexusAI.agentStepStream(messages, tools, (t) => {
+          if (first) { first = false; nxLog("first text"); r.timing.push(`first word ${Math.round(performance.now() - tr)}ms`); setTask("speaking", "AI LINK", "応答を受信中…", "CONVERSATION", "STREAMING"); }
+          render((steps.length ? steps.join("\n") + "\n\n" : "") + t);
+          if (r.streamable && r.onStreamText) r.onStreamText(t);
+        });
+        const calls = msg.tool_calls || [];
+        r.timing.push(`round ${round + 1} ${Math.round(performance.now() - tr)}ms`);
+        nxLog(`ai round ${round + 1} ${Math.round(performance.now() - tr)}ms calls ${calls.map((c) => c.function.name).join(",") || "none"}`);
+        if (calls.length && r.resetSpoken) r.resetSpoken();
+        if (!calls.length) { r.timing.push(`total ${Math.round(performance.now() - t0)}ms`); return { text: msg.content || "", steps }; }
+        messages.push({ role: "assistant", content: msg.content || null, tool_calls: calls });
+        for (const c of calls) {
+          let args = {}; try { args = JSON.parse(c.function.arguments || "{}"); } catch (_) {}
+          const lbl = TOOL_LABEL[c.function.name] || c.function.name;
+          setTask("speaking", "ACTION", `⚙ ${lbl}`, "COMMAND", "AGENT");
+          let result;
+          try { result = await runTool(c.function.name, args); } catch (e) { result = "失敗：" + (e.message || e); }
+          if (c.function.name !== "remember" && !/頼んでいません/.test(String(result))) steps.push(`⚙ ${lbl}${args.name || args.query || args.text ? "：" + (args.name || args.query || args.text) : ""}`);
+          Object.defineProperty(c, "_done", { value: { name: c.function.name, args, result }, enumerable: false, configurable: true });
+          render(steps.join("\n") + "\n…");
+          messages.push({ role: "tool", tool_call_id: c.id, content: String(result).slice(0, 2000) });
+        }
+        // 操作だけなら、AIに2度目を聞かずにその場で報告（待ち時間を半分に）
+        // 版157：調べものだけなら、検索の答えをそのまま返す（AI にもう一度まとめさせる往復を省く。記録では20秒以上かかっていた）
+        const onlySearch = calls.length && calls.every((c) => c.function.name === "search_answer" && /^検索の結果：/.test(String(c._done && c._done.result)));
+        if (onlySearch) {
+          const txt = calls.map((c) => String(c._done.result).replace(/^検索の結果：/, "").replace(/（答えにこの出典の名前を添えること）/, "")).join("\n");
+          r.timing.push(`total ${Math.round(performance.now() - t0)}ms (search direct)`);
+          return { text: txt, steps };
+        }
+        // 版142：会話から自分で覚える（remember）は黙って行う。覚えるだけなら、答えはそのまま／次の往復で答える
+        const acts = calls.filter((c) => c.function.name !== "remember");
+        if (!acts.length && (msg.content || "").trim()) { r.timing.push(`total ${Math.round(performance.now() - t0)}ms`); return { text: msg.content, steps }; }
+        if (acts.length && acts.every((c) => ACTION_TOOLS.has(c.function.name) && !/頼んでいません/.test(String(c._done && c._done.result)))) {
+          const lines = acts.map((c) => confirmLine(c._done.name, c._done.args, c._done.result));
+          const lead = acts.some(c => c.function.name === "write_notepad") ? "" : (msg.content || "").trim();
+          r.timing.push(`total ${Math.round(performance.now() - t0)}ms`);
+          return { text: (lead ? lead + "\n" : `かしこまりました、${db.title}。`) + lines.join(""), steps };
+        }
+      }
+      return { text: "操作が長くなりすぎたため、ここで止めました。", steps };
+    }
+
+    async function askAI(r) {
+      setTask("thinking", "AI LINK", "NEXUSに接続", "CONVERSATION", "STREAMING");
+      const el = document.createElement("div");
+      el.className = "msg nexus";
+      el.innerHTML = `<small>NEXUS · AI</small><span class="nx-ai-body">…</span>`;
+      log.appendChild(el); log.scrollTop = log.scrollHeight;
+      const body = el.querySelector(".nx-ai-body");
+      const render = (t) => { body.innerHTML = escapeHtml(cleanAI(t)).replace(/\n/g, "<br>"); log.scrollTop = log.scrollHeight; };
+      try {
+        let full;
+        // AivisSpeech の声のときだけ、届いた文から順に読む（Windowsの声は途中で止まるため、最後にまとめて読む）
+        // 版116：Gemini の声が無料枠切れで VOICEVOX が代わりに話すときも、届いた順に短く区切って読む
+        const vvNow = VV.engine === "aivis" || VV.engine === "light" || (VV.engine === "gemini" && (VV.geminiOutUntil || 0) > Date.now());
+        const liveOn = (() => { try { return !!(nxLive.state.ws && nxLive.state.ws.readyState === 1); } catch (_) { return false; } })();
+        const streamVoice = !liveOn && vvNow && !!window.__NEXUS_APP__ && (kindNow() === "light" ? VV.lightOk !== false : VV.ok !== false);
+        let spokenUpTo = 0;
+        // 音声を作る順番と、再生する順番を分ける。作るのは届いた時点から始め、再生は前の文が終わってから
+        let synthChain = Promise.resolve(), playChain = Promise.resolve();
+        const playWav = (b64) => { nxLog("audio start"); return playBytes(fadeWav(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))); };
+        const speakQueued = (chunk) => {
+          if (currentMode === "silent" || !(currentMode === "voice" || db.speakAlways)) return;
+          const text = chunk.replace(/[⏱⏲▶・※【】「」『』]/g, " ").replace(/\(.*?\)|（[^）]*）/g, " ").replace(/\s+/g, " ").trim();
+          if (!text) return;
+          const saved = text === FILLER && window.__fillerB64;
+          const job = saved ? Promise.resolve(window.__fillerB64) : synthChain.then(() => { nxLog("synth start " + text.length + "字"); return vvSynth(text).then((b) => { nxLog("synth done"); return b; }); });
+          if (!saved) synthChain = job.catch(() => {});
+          // 声を作れなかったら、黙らずに Windows の声で読む（版106）
+          // 版152：話し終えるまで（文と文の間の待ちも含めて）はマイクで聞かない
+          window.__nxSpeakPending = (window.__nxSpeakPending || 0) + 1;
+          playChain = playChain.then(() => job).then((b64) => playWav(b64)).finally(() => { window.__nxSpeakPending = Math.max(0, (window.__nxSpeakPending || 1) - 1); }).catch(() => { if (kindNow() === "light") VV.lightOk = false; else VV.ok = false; speakSystem(text, true, true); });
+        };
+        // 版115：声は「、」「。」ごとの短いかたまり（6字以上）で作る。声を作る時間は長さに比例するので、
+        // 最初の声が早く出て、前のかたまりを読んでいるあいだに次ができる（VOICEVOX でも Gemini の声に近い速さに）
+        // 版123：「、」で切るのは最初の一言だけ。あとは「。」ごとに作る（会長：「点で少し長く止まる。丸はちょっと早い」。
+        // 次のかたまりを作る待ちが「、」に入ると不自然なので、待ちは文の終わり（「。」）に来るようにする）
+        let firstCut = false;
+        // 版125：最初の一言が長い（14字を超える）ときは、助詞（は・が・を・に・で・と・も）のところで先に切る
+        const firstSplit = (b) => { if (b.trim().length <= 14) return [b]; const head = b.slice(0, 15); let i = -1; for (let k = 5; k < head.length; k++) if ("はがをにでとも".includes(head[k]) && b[k + 1] && !/[ぁ-ゖー]/.test(b[k + 1])) i = k; return i > 0 ? [b.slice(0, i + 1), b.slice(i + 1)] : [b]; };
+        const pieces = (txt) => { const out = []; let buf = ""; for (const seg of txt.split(/(?<=[、。！？!?\n])/)) { buf += seg; if ((!firstCut || /[。！？!?\n]$/.test(seg) || (buf.trim().length >= 40 && /、$/.test(seg))) && buf.trim().length >= 6) { if (!firstCut) { const [a, b] = firstSplit(buf); out.push(a); buf = b || ""; firstCut = true; if (buf && /[。！？!?\n]$/.test(seg) && buf.trim().length >= 6) { out.push(buf); buf = ""; } } else { out.push(buf); buf = ""; } } } return { out, left: buf }; };
+        const streamSpeak = (sofar) => {
+          const rest = cleanAI(sofar).slice(spokenUpTo);
+          const end = Math.max(firstCut ? -1 : rest.lastIndexOf("、"), rest.lastIndexOf("。"), rest.lastIndexOf("！"), rest.lastIndexOf("？"), rest.lastIndexOf("\n"));
+          if (end < 0) return;
+          const { out, left } = pieces(rest.slice(0, end + 1));
+          const used = end + 1 - left.length;
+          if (used <= 0) return;
+          spokenUpTo += used; out.forEach(speakQueued);
+        };
+        r.streamSpoken = streamVoice;
+        r.resetSpoken = () => { spokenUpTo = 0; };
+        r.speakTail = (answer) => { const tail = answer.slice(spokenUpTo).trim(); if (streamVoice && tail) { const { out, left } = pieces(tail); [...out, left].filter((x) => x.trim()).forEach(speakQueued); } };
+        // 最初の「はい、会長。」は言わない（会長の指示・版106）
+        if (NexusAI.supportsTools()) {
+          r.onStreamText = (t) => { if (streamVoice && r.streamable) streamSpeak(t); };
+          const out = await runAgent(r, el, body, render);
+          full = (out.steps.length ? out.steps.join("\n") + "\n\n" : "") + (out.text || "");
+          r.spoken = cleanAI(out.text || "").trim();
+        } else {
+          let first = true;
+          full = await NexusAI.chat(buildAIMessages(), (sofar) => {
+            if (first) { first = false; nxLog("first text"); setTask("speaking", "AI LINK", "応答を受信中…", "CONVERSATION", "STREAMING"); }
+            render(sofar);
+            if (streamVoice) streamSpeak(sofar);
+          });
+        }
+        const answer = cleanAI(full).trim() || "（AIから応答が返りませんでした）";
+        render(answer);
+        if (r.speakTail) r.speakTail(answer);
+        db.history.push({ role: "nexus", text: answer, t: Date.now() });
+        if (db.history.length > 60) db.history = db.history.slice(-60);
+        save();
+        r.reply = answer; r.intent = "AI";
+        return r.spoken || answer;
+      } catch (e) {
+        el.remove();
+        const q = (db.history[db.history.length - 1] || {}).text || "";
+        const url = "https://www.google.com/search?q=" + encodeURIComponent(q);
+        pending = { type: "open", url: "https://www.google.com/search?q=" + encodeURIComponent(q), label: "Google：" + q };
+        const why = /failed to fetch|networkerror|load failed|connection|dns|timed out/i.test(String(e.message || e)) ? "接続先に届きません。インターネット接続か、AIが起動しているかを確認してください" : (e.message || e);
+        const msg = `${db.title}、AIとの接続に失敗しました（${why}）。代わりにウェブで検索しましょうか？（はい／いいえ）`;
+        addMessage("nexus", msg);
+        r.reply = msg; r.intent = "AI_ERROR";
+        setTask("error", "AI LINK", "接続に失敗しました。", "SYSTEM", "AI設定を確認");
+        return msg;
+      }
+    }
+    window.addEventListener("nexus-ai-changed", (e) => {
+      addMessage("nexus", window.NexusAI && NexusAI.enabled()
+        ? "AIリンクを確立しました。私の知らない事柄は、これからこのAIと共に考えます。"
+        : "AIリンクを解除しました。ローカル頭脳のみで稼働します。");
+    });
+    document.getElementById("nxAiBadge")?.addEventListener("click", () => window.NexusAI && NexusAI.open());
+
+    /* ---------- Gemini の鍵づくり（途中まで自動） ---------- */
+    // ブラウザで鍵のページを開き、利用者が鍵をコピーした瞬間に NEXUS が受け取って接続する
+    function startKeySetup() {
+      const u = "https://aistudio.google.com/apikey";
+      if (window.__NEXUS_APP__) { window.open(u, "_blank"); window.ipc.postMessage("watch-gemini-key"); }
+      else openUrl(u);
+      return window.__NEXUS_APP__
+        ? `ブラウザで Google AI Studio を開きました、${db.title}。\n① Google にログイン\n②「APIキーを作成」を押す（プロジェクトを聞かれたら「新しいプロジェクトで作成」）\n③ 出てきた鍵（AIza…）の横のコピーボタンを押す\nコピーした瞬間に、私が自動で受け取って接続します。貼り付けは要りません（10分間お待ちします）。`
+        : "ブラウザで Google AI Studio を開きました。鍵（AIza…）を作ってコピーし、この入力欄に貼り付けてください。";
+    }
+    window.__nxStartKeySetup = startKeySetup;
+    window.__nxKeyFound = async (key) => {
+      addMessage("nexus", "コピーされた鍵を見つけました。接続しています…", { noHistory: true });
+      try {
+        await NexusAI.setupGemini(key);
+        window.dispatchEvent(new CustomEvent("nexus-ai-changed", { detail: "" }));
+        speak("Gemini との接続が完了しました。", true);
+        flashCore();
+      } catch (e) {
+        addMessage("nexus", `その鍵では接続できませんでした（${e.message || e}）。もう一度「鍵を作る」と打ってやり直してください。`);
+      }
+    };
+
+    async function submitCommand(mode = "silent", directText = null) {
+      const text = (directText ?? getEditorText()).trim();
+      if (!text || busy) return;
+      busy = true;
+      romaBuf = ""; shownBuf = "";   // 入力の途中（ローマ字の残り）を持ち越さない
+      window.__t0 = performance.now(); nxLog("question sent");
+      try {
+        setMode(mode);
+        if (mode === "silent" && "speechSynthesis" in window) speechSynthesis.cancel();
+        input.value = "";
+        typingStatus.textContent = "";
+        addMessage("user", text);
+        setTask("thinking", "ANALYZING", "解析中…", null, "PROCESSING");
+        const r = await think(text);
+        if (r.ai) {
+          const answer = await askAI(r);
+          detailText.textContent = buildDetail(text, r);
+          if (!r.streamSpoken) speak(answer);
+          flashCore();
+          if (r.intent === "AI") setTimeout(() => { setTask("done", "READY", "完了しました。", r.route, "AWAITING COMMAND"); returnTaskToIdle(3600); }, 900);
+          return;
+        }
+        setTask("speaking", "RESPONDING", r.intent, r.route, "AWAITING COMMAND");
+        addMessage("nexus", r.reply, { link: r.link });
+        if (r.after) r.after();
+        detailText.textContent = buildDetail(text, r);
+        speak(r.shortSpeak || r.reply.split("\n※")[0], !!r.speakForce);
+        flashCore();
+        setTimeout(() => { setTask("done", "READY", "完了しました。", r.route, "AWAITING COMMAND"); returnTaskToIdle(3600); }, 900);
+      } catch (e) {
+        addMessage("nexus", "内部エラーが発生しました：" + (e && e.message || e));
+        setTask("error", "ERROR", String(e && e.message || e));
+      } finally { busy = false; }
+    }
+
+    window.addEventListener("nx-boot-ready", () => {
+      const saved = typeof db.startupGreeting === "string" && db.startupGreeting.trim();
+      const greeting = saved || `${greetingWord()}、${db.title}。`;
+      addMessage("nexus", greeting);
+      speak(greeting);
+    }, {once: true});
+    window.addEventListener("beforeunload", () => { try { db.history = []; save(); } catch (_) {} });
+    window.addEventListener("load", () => {
+      // 起動ファイルが自動更新した場合のお知らせ
+      const upd = (location.hash.match(/updated=(\d+)/) || [])[1];
+      // 版142：起動時のチャット欄は空にする。前回の会話は残さない（会長：「閉じたらチャット履歴は削除、起動時にはチャット欄に何も無い状態に」）
+      // 覚えたこと（記憶）・メモ・タスクは消さない
+      db.history = []; save();
+      // 版と種類（アプリ版／ブラウザ版）を右上に常時表示
+      try { const b = document.getElementById("recordingBtn"); if (b && !document.getElementById("nxEdition")) { const e = document.createElement("span"); e.id = "nxEdition"; e.textContent = `v${NEXUS_VERSION} ${window.__NEXUS_APP__ ? "APP" : "BROWSER"}`; e.style.cssText = "margin-right:14px;font-size:11px;letter-spacing:.18em;color:#ffbf3d;opacity:.85"; b.parentElement.insertBefore(e, b); } } catch (_) {}
+      setTask("idle", "STANDBY", idleSummary(), "CONVERSATION", "AWAITING COMMAND");
+      if (!window.__nxBootHold) setTimeout(() => { try { typingStatus.focus({ preventScroll: true }); } catch (e) { typingStatus.focus(); } }, 120);
+    });
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("button, summary, details, a")) return;
+      try { typingStatus.focus({ preventScroll: true }); } catch (e) { typingStatus.focus(); }
+    });
+
+    function getEditorText() { return typingStatus.textContent.replace(/ /g, " ").trim(); }
+
+    /* ---------- ひらがな入力（ローマ字→かな、画面の中で完結。日本語IMEに依存しない） ---------- */
+    const ROMA = { a:"あ",i:"い",u:"う",e:"え",o:"お", ka:"か",ki:"き",ku:"く",ke:"け",ko:"こ", sa:"さ",si:"し",shi:"し",su:"す",se:"せ",so:"そ",
+      ta:"た",ti:"ち",chi:"ち",tu:"つ",tsu:"つ",te:"て",to:"と", na:"な",ni:"に",nu:"ぬ",ne:"ね",no:"の",
+      ha:"は",hi:"ひ",hu:"ふ",fu:"ふ",he:"へ",ho:"ほ", ma:"ま",mi:"み",mu:"む",me:"め",mo:"も", ya:"や",yu:"ゆ",yo:"よ",
+      ra:"ら",ri:"り",ru:"る",re:"れ",ro:"ろ", wa:"わ",wo:"を",
+      ga:"が",gi:"ぎ",gu:"ぐ",ge:"げ",go:"ご", za:"ざ",ji:"じ",zi:"じ",zu:"ず",ze:"ぜ",zo:"ぞ",
+      da:"だ",di:"ぢ",du:"づ",de:"で",do:"ど", ba:"ば",bi:"び",bu:"ぶ",be:"べ",bo:"ぼ", pa:"ぱ",pi:"ぴ",pu:"ぷ",pe:"ぺ",po:"ぽ",
+      kya:"きゃ",kyu:"きゅ",kyo:"きょ", sha:"しゃ",shu:"しゅ",sho:"しょ", cha:"ちゃ",chu:"ちゅ",cho:"ちょ",
+      nya:"にゃ",nyu:"にゅ",nyo:"にょ", hya:"ひゃ",hyu:"ひゅ",hyo:"ひょ", mya:"みゃ",myu:"みゅ",myo:"みょ",
+      rya:"りゃ",ryu:"りゅ",ryo:"りょ", gya:"ぎゃ",gyu:"ぎゅ",gyo:"ぎょ", ja:"じゃ",ju:"じゅ",jo:"じょ", bya:"びゃ",byu:"びゅ",byo:"びょ",
+      pya:"ぴゃ",pyu:"ぴゅ",pyo:"ぴょ", tya:"ちゃ",tyu:"ちゅ",tyo:"ちょ",
+      sya:"しゃ",syu:"しゅ",syo:"しょ",sye:"しぇ",she:"しぇ", zya:"じゃ",zyu:"じゅ",zyo:"じょ",jya:"じゃ",jyu:"じゅ",jyo:"じょ",je:"じぇ",zye:"じぇ",jye:"じぇ",
+      cya:"ちゃ",cyu:"ちゅ",cyo:"ちょ",che:"ちぇ",tye:"ちぇ", dya:"ぢゃ",dyu:"ぢゅ",dyo:"ぢょ", kye:"きぇ",gye:"ぎぇ",nye:"にぇ",hye:"ひぇ",bye:"びぇ",pye:"ぴぇ",mye:"みぇ",rye:"りぇ",
+      xa:"ぁ",xi:"ぃ",xu:"ぅ",xe:"ぇ",xo:"ぉ",la:"ぁ",li:"ぃ",lu:"ぅ",le:"ぇ",lo:"ぉ", xya:"ゃ",xyu:"ゅ",xyo:"ょ",lya:"ゃ",lyu:"ゅ",lyo:"ょ",
+      xtu:"っ",ltu:"っ",xtsu:"っ",ltsu:"っ", xwa:"ゎ",lwa:"ゎ", xka:"ヵ",lka:"ヵ",xke:"ヶ",lke:"ヶ",
+      fa:"ふぁ",fi:"ふぃ",fe:"ふぇ",fo:"ふぉ",fyu:"ふゅ", va:"ゔぁ",vi:"ゔぃ",vu:"ゔ",ve:"ゔぇ",vo:"ゔぉ",
+      thi:"てぃ",thu:"てゅ",dhi:"でぃ",dhu:"でゅ",twu:"とぅ",dwu:"どぅ", tsa:"つぁ",tsi:"つぃ",tse:"つぇ",tso:"つぉ",
+      wi:"うぃ",we:"うぇ",ye:"いぇ",whi:"うぃ",whe:"うぇ",who:"うぉ", kwa:"くぁ",gwa:"ぐぁ", ci:"し",ce:"せ",ca:"か",cu:"く",co:"こ",
+      "-":"ー", ",":"、", ".":"。", "!":"！", "?":"？" };
+    const KANA_PREFIX = new Set(); for (const k of Object.keys(ROMA)) for (let i = 1; i < k.length; i++) KANA_PREFIX.add(k.slice(0, i));
+    let kanaOn = false, romaBuf = "", shownBuf = "";   // shownBuf：画面に仮表示している未確定のローマ字
+    // 入力は常にWindowsの日本語入力（版99で切り替えをなくした）
+    const setKanaUi = () => { const b = document.getElementById("kanaBtn"); if (b) { b.textContent = kanaOn ? "あ" : "A"; b.classList.toggle("voice-on", kanaOn); } };
+    setKanaUi();
+    const putText = (t) => {
+      typingStatus.textContent = t;
+      const r = document.createRange(); r.selectNodeContents(typingStatus); r.collapse(false);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    };
+    // スペースで変換。もう一度スペースで候補を切り替える。文字を打つと確定する
+    let conv = null;   // { prefix, cands, idx, rest }：変換中の言葉
+    // 助詞や「です」「ます」などは、ひらがなのまま残す（漢字にすると不自然になるため）
+    const KANA_KEEP = new Set(["です","ます","でも","では","ので","から","まで","など","ため","こと","もの","ある","いる","して","する","なる","ない","られ","れる","できる","ください","ている","ても","よう","だけ","しか","ほど","ところ","ました","ません","ください"]);
+    // よく使う言葉は、辞書より先にこの漢字を出す（辞書の並び順は古い言葉が先になるため）
+    const CONV_PRIORITY = {"きょう": "今日", "きのう": "昨日", "あした": "明日", "あす": "明日", "いま": "今", "わたし": "私", "ぼく": "僕", "きみ": "君", "あなた": "貴方", "かいちょう": "会長", "じかん": "時間", "こんど": "今度", "ひつよう": "必要", "たいせつ": "大切", "だいじょうぶ": "大丈夫", "げんき": "元気", "てんき": "天気", "でんわ": "電話", "おんがく": "音楽", "たべる": "食べる", "みる": "見る", "いく": "行く", "くる": "来る", "いう": "言う", "おもう": "思う", "つくる": "作る", "つかう": "使う", "すき": "好き", "きらい": "嫌い", "よい": "良い", "わるい": "悪い", "おおきい": "大きい", "ちいさい": "小さい", "あたらしい": "新しい", "ふるい": "古い", "はやい": "早い", "おそい": "遅い", "たかい": "高い", "やすい": "安い", "おおい": "多い", "すくない": "少ない", "はやく": "早く", "へや": "部屋", "いえ": "家", "かいしゃ": "会社", "しごと": "仕事", "さいきん": "最近", "ほんとう": "本当", "まちがい": "間違い", "こまる": "困る", "おしえる": "教える", "かえる": "変える", "かわる": "変わる", "ひらく": "開く", "とじる": "閉じる", "こえ": "声", "おと": "音", "かず": "数", "なまえ": "名前", "ばしょ": "場所", "もんだい": "問題", "しつもん": "質問", "こたえ": "答え", "けっか": "結果", "りゆう": "理由", "いみ": "意味", "ほうほう": "方法", "きかい": "機会", "よてい": "予定", "じゅんび": "準備", "かくにん": "確認", "れんらく": "連絡", "そうだん": "相談", "けんさく": "検索", "とうろく": "登録", "せってい": "設定", "へんかん": "変換", "にゅうりょく": "入力", "かんじ": "漢字", "ひらがな": "平仮名", "にほんご": "日本語", "えいご": "英語", "ともだち": "友達", "がっこう": "学校", "せんせい": "先生", "びょういん": "病院", "えき": "駅", "でんしゃ": "電車", "くるま": "車", "ひこうき": "飛行機", "おかね": "お金", "こども": "子供", "おとな": "大人", "としょかん": "図書館", "しょくどう": "食堂", "ごはん": "ご飯", "みず": "水", "おちゃ": "お茶", "あめ": "雨", "ゆき": "雪", "かぜ": "風", "はな": "花", "やま": "山", "かわ": "川", "うみ": "海", "そら": "空", "ひ": "日", "つき": "月", "ほし": "星", "ちかい": "近い", "とおい": "遠い", "きれい": "綺麗", "たのしい": "楽しい", "むずかしい": "難しい", "やさしい": "優しい", "うれしい": "嬉しい", "かなしい": "悲しい"};
+    const hasKanji = (c) => /[^ぁ-んァ-ヶー]/.test(c);
+    const convertTrailing = (text) => {
+      const m = text.match(/[ぁ-んー]+$/);
+      if (!m) return null;
+      const run = m[0]; const head = text.slice(0, text.length - run.length);
+      for (let i = 0; i < run.length; i++) {
+        // よく使う言葉を先に探す（長い辞書の言葉に負けないように）
+        for (let j = Math.min(run.length, i + 12); j >= i + 2; j--) {
+          const seg = run.slice(i, j);
+          if (CONV_PRIORITY[seg]) { const first = CONV_PRIORITY[seg]; const more = (window.MOZC_DICT[seg] || []).filter((c) => hasKanji(c) && c !== first); return { prefix: head + run.slice(0, i), cands: [first, ...more], idx: 0, rest: run.slice(j) }; }
+        }
+        for (let j = Math.min(run.length, i + 12); j >= i + 2; j--) {
+          const seg = run.slice(i, j);
+          if (KANA_KEEP.has(seg)) continue;
+          const cands = window.MOZC_DICT[seg];
+          const kanji = cands ? cands.filter(hasKanji) : [];
+          if (kanji.length) return { prefix: head + run.slice(0, i), cands: kanji, idx: 0, rest: run.slice(j) };
+        }
+      }
+      return null;
+    };
+    const flushRoma = () => { let out = ""; if (romaBuf === "n") out = "ん"; else if (romaBuf) out = romaBuf; romaBuf = ""; return out; };
+    // 画面を「確定文字＋仮表示のローマ字」にする
+    const showText = (out) => {
+      const cur = typingStatus.textContent;
+      const base = cur.slice(0, cur.length - shownBuf.length);
+      shownBuf = romaBuf;
+      putText(base + out + (romaBuf === "n" ? "ん" : romaBuf));   // 末尾の「n」は「ん」として見せ、次の文字で確定する
+    };
+    // 1文字入れる。戻り値はそのまま画面に追加する文字
+    const kanaFeed = (ch) => {
+      if (/[a-z]/.test(ch) && romaBuf && ch === romaBuf[0] && !/[aiueon]/.test(ch) && ch !== "n") {  // かっ（子音の重ね）
+        const out = "っ"; romaBuf = ch; return out;
+      }
+      if (/[-,.!?]/.test(ch)) { const pre = flushRoma(); return pre + ROMA[ch]; }
+      if (romaBuf === "n" && /[^aiueony]/.test(ch)) { romaBuf = ch; return "ん"; }
+      if (romaBuf === "n" && ch === "n") { romaBuf = ""; return "ん"; }   // 「nn」は「ん」（次の文字は新しく始まる）
+      const next = romaBuf + ch;
+      if (ROMA[next] && !KANA_PREFIX.has(next)) { romaBuf = ""; return ROMA[next]; }
+      if (ROMA[next] && KANA_PREFIX.has(next)) { romaBuf = next; return ""; }   // まだ続きがあるかもしれない（例：ky → kya）
+      if (KANA_PREFIX.has(next)) { romaBuf = next; return ""; }
+      const out = flushRoma(); romaBuf = ch;
+      return out;
+    };
+    typingStatus.addEventListener("keydown", (event) => {
+      if (!kanaOn || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+      if (conv && event.key !== " ") conv = null;
+      if (event.key === "Enter") { const tail = flushRoma(); if (tail || shownBuf) showText(tail); shownBuf = ""; return; }
+      if (event.key === "Backspace") {
+        if (romaBuf) { event.preventDefault(); romaBuf = romaBuf.slice(0, -1); showText(""); return; }
+        return;
+      }
+      if (event.key.length !== 1) return;
+      const c = /^[A-Z]$/.test(event.key) ? event.key : event.key.toLowerCase();   // 大文字はかなにせず、そのまま入れる
+      if (event.key === " ") {
+        event.preventDefault();
+        if (conv) { conv.idx = (conv.idx + 1) % conv.cands.length; putText(conv.prefix + conv.cands[conv.idx] + conv.rest); return; }
+        const base = typingStatus.textContent.slice(0, typingStatus.textContent.length - shownBuf.length) + flushRoma();
+        shownBuf = ""; romaBuf = "";
+        conv = convertTrailing(base);
+        if (conv) putText(conv.prefix + conv.cands[0] + conv.rest); else putText(base + " ");
+        return;
+      }
+      if (!/^[a-z\-,.!?]$/.test(c)) { const tail = flushRoma(); if (tail || shownBuf) showText(tail); shownBuf = ""; return; }
+      event.preventDefault(); event.stopImmediatePropagation();
+      const out = kanaFeed(c);
+      showText(out);
+    }, true);
+    // 英数の入力欄から、入力中のローマ字を文字にしておく（入力欄の表示は現在の確定文字）
+    // 右下のボタンとCtrl+J：「あ」（かな入力・漢字変換）と「A」（英字そのまま）を切り替える
+    const toggleKana = () => { kanaOn = !kanaOn; try { localStorage.setItem("nexus.kana97", kanaOn ? "on" : "off"); } catch (_) {} setKanaUi(); askJapaneseIme(); try { typingStatus.focus({ preventScroll: true }); } catch (_) {} };
+    { const kb = document.getElementById("kanaBtn"); if (kb) kb.style.display = "none"; }   // 切り替えボタンは使わない（会長の指示・版99）
+    typingStatus.addEventListener("keydown", (event) => {
+      if (event.isComposing || event.keyCode === 229) return;   // 変換中・確定のEnterでは送信しない
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submitCommand("silent", getEditorText());
+        requestAnimationFrame(() => {
+          document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+          try { typingStatus.focus({ preventScroll: true }); } catch (e) {}
+        });
+      }
+    });
+    // 入力欄を選んだら、日本語入力（IME）をオンにする（アプリ版）
+    // 「あ」のときはWindowsの日本語入力をオフ（NEXUSが変換）、「A」のときはオン（Windowsが変換）
+    const askJapaneseIme = () => { if (window.__NEXUS_APP__ && window.ipc) window.ipc.postMessage(kanaOn ? "ime-off" : "ime-ja"); };
+    typingStatus.addEventListener("focus", askJapaneseIme);
+    window.addEventListener("load", () => { setTimeout(askJapaneseIme, 400); });
+    const insertPlain = (txt) => {
+      romaBuf = ""; shownBuf = ""; conv = null;
+      if (!txt) return;
+      if (document.execCommand("insertText", false, txt)) return;
+      const sel = window.getSelection();
+      if (!sel.rangeCount || !typingStatus.contains(sel.anchorNode)) { putText(typingStatus.textContent + txt); return; }
+      const r = sel.getRangeAt(0); r.deleteContents(); r.insertNode(document.createTextNode(txt));
+      r.collapse(false); sel.removeAllRanges(); sel.addRange(r);
+    };
+    let pasteSeen = false;
+    typingStatus.addEventListener("paste", (event) => {
+      event.preventDefault(); pasteSeen = true;
+      const txt = ((event.clipboardData || window.clipboardData).getData("text") || "").replace(/\r?\n/g, " ");
+      insertPlain(txt);
+    });
+    // 入力欄の右クリックで、すぐ貼り付ける（メニューは出さない。会長の指示・版98）
+    typingStatus.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      try { typingStatus.focus({ preventScroll: true }); } catch (_) { typingStatus.focus(); }
+      if (!navigator.clipboard || !navigator.clipboard.readText) return;
+      navigator.clipboard.readText().then((t) => insertPlain((t || "").replace(/\r?\n/g, " "))).catch(() => {});
+    });
+    // 貼り付けの合図（paste）が届かない環境の予備：Ctrl+V のあと、クリップボードを直接読む
+    typingStatus.addEventListener("keydown", (event) => {
+      if (!(event.ctrlKey && (event.key === "v" || event.key === "V"))) return;
+      pasteSeen = false;
+      setTimeout(() => {
+        if (pasteSeen || !navigator.clipboard || !navigator.clipboard.readText) return;
+        navigator.clipboard.readText().then((t) => insertPlain((t || "").replace(/\r?\n/g, " "))).catch(() => {});
+      }, 80);
+    });
+    typingStatus.addEventListener("input", () => {
+      if (!typingStatus.textContent) { romaBuf = ""; shownBuf = ""; }   // 入力欄を空にしたら、途中のローマ字も消す
+      setMode("silent");
+      setTask("idle", "INPUT ACTIVE", "入力中…", null, "TEXT RESPONSE");
+    });
+
+    // クイックボタン：その場でコマンド実行
+    document.querySelectorAll("[data-cmd]").forEach((button) => {
+      button.addEventListener("click", () => submitCommand(db.speakAlways ? "voice" : "silent", button.dataset.cmd));
+    });
+
+    function setTaskPanelVisible(visible) {
+      app.classList.toggle("task-hidden", !visible);
+      taskToggle.textContent = visible ? "COLLAPSE" : "SHOW";
+    }
+    taskToggle.addEventListener("click", () => setTaskPanelVisible(false));
+    taskRestore.addEventListener("click", () => setTaskPanelVisible(true));
+
+    // 音声出力トグル（右上ピル）
+    function syncVoiceBtn() {
+      if (!recordingBtn) return;
+      recordingBtn.textContent = db.speakAlways ? "VOICE OUT : ON" : "VOICE OUT : OFF";
+      recordingBtn.classList.toggle("voice-on", db.speakAlways);
+    }
+    if (recordingBtn) recordingBtn.addEventListener("click", () => {
+      db.speakAlways = !db.speakAlways; save(); syncVoiceBtn();
+      if (db.speakAlways) speak("音声応答、オンライン。", true); else if ("speechSynthesis" in window) speechSynthesis.cancel();
+    });
+    syncVoiceBtn();
+
+    setMode("idle");
+
+    /* ---------- 音声入力 (ブラウザ標準・無料) ---------- */
+    // アプリ版は、Windowsの音声認識（PC内で動く）を使う。ブラウザ版は、ブラウザの音声認識を使う
+    const SpeechRecognition = window.__NEXUS_APP__ ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
+    // 聞き取りの結果は、Rust 側から届く（1文ずつ、submitCommand で送る）
+    // 版106：アプリ版は「Mic で録音開始 → もう一度 Mic で止める → Gemini が文字にする」（古い Windows の音声認識は精度が低いため）
+    async function nxTranscribe(b64) {
+      const g = window.NexusAI && NexusAI.geminiFor && NexusAI.geminiFor();
+      if (!g) throw new Error("Gemini の鍵がありません。「鍵を作る」で Gemini につなぐと、マイクが使えます");
+      // 聞き取りは「lite」でない Gemini を使う（聞き間違いが少ない）。無ければ今のモデル（版107）
+      const full = g.model.replace(/-lite(?=$|-)/, "");
+      // 考え込みを止めて速く書き起こす。受け付けないモデルなら、指定なし→lite の順にやり直す（版110）
+      // 版112：記録では lite でない型の聞き取りに8〜17秒かかっていた。声が十分大きくなったので、速い今のモデルを先に使う
+      // 版116：記録では「考え込みなし」の指定が毎回 400 で断られ、約0.9秒むだになっていた。指定せずに頼む
+      // 版133：聞き取りは耳の良い flash を「考え込み最小」で使う（lite は「シェア用 ドロップニー6本」のような聞き違いをした）。
+      // 断られたら、指定なしの flash → lite の順にやり直す
+      const tries = [[full, true], [full, false], [g.model, false]].filter((x, i, a) => a.findIndex((y) => y[0] === x[0] && y[1] === x[1]) === i);
+      const prompt = "これは、会長が AI アシスタント「NEXUS（ネクサス）」に日本語で話しかけた声です。質問や頼みごと（アプリを開く、調べる、メモ、タイマーなど）が多いです。マイクに向かって話した一人の声だけを、話した言葉のとおりに書き起こし、書き起こした文だけを返してください。テレビ・ラジオ・動画の音や、遠くの人の声は書き起こさないでください。言いよどみ（えー、あの）は省いてください。声が入っていなければ（クリックの音や物音だけのときも）、何も返さないでください。";
+      // 版137：記録では flash の聞き取りに9〜12秒、lite は約2秒。両方に同時に頼み、lite が答えてから
+      // 2.5秒以内に flash が答えればそちら（耳が良い）、間に合わなければ lite の書き起こしを使う
+      const ask = async (model, fast) => {
+        const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/wav", data: b64 } }] }], generationConfig: Object.assign({ temperature: 0 }, fast ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}) });
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+        let raw = "", status;
+        if (window.__nxAppHttp) status = await window.__nxAppHttp(url, "POST", body, (l) => { raw += l; }, { "x-goog-api-key": g.key });
+        else { const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": g.key }, body }); status = res.status; raw = await res.text(); }
+        nxLog(`mic try ${model}${fast ? " fast" : ""} ${status}`);
+        return { status, raw };
+      };
+      const chain = async (list) => { let r = { status: 0, raw: "" }; for (const [m, f] of list) { try { r = await ask(m, f); } catch (e) { r = { status: 599, raw: "" }; } if (r.status !== 404 && r.status !== 400) break; } return r; };
+      const textOf = (r) => { try { const c = JSON.parse(r.raw).candidates; return ((c && c[0] && c[0].content && c[0].content.parts) || []).filter((p) => !p.thought).map((p) => p.text || "").join("").trim(); } catch (_) { return ""; } };
+      const fullTries = tries.filter((t) => t[0] === full);
+      // 版170：会話が flash でも、聞き取りは lite と同時に頼む（版137〜159 の方式。flash だけだと約6秒かかっていた）
+      const lite = full !== g.model ? g.model : full + "-lite";
+      const pFull = chain(fullTries);
+      if (!lite) { const r = await pFull; if (r.status === 429) throw new Error("Gemini の無料枠の上限に達しました。少し待ってからお試しください"); if (r.status >= 400) throw new Error("聞き取りに失敗しました（HTTP " + r.status + "）"); return textOf(r); }
+      const pLite = chain([[lite, false]]);
+      const winner = await new Promise((resolve) => {
+        let liteR = null, fullR = null, timer = 0;
+        const ok = (r) => r && r.status === 200;
+        pFull.then((r) => { fullR = r; if (ok(r)) { clearTimeout(timer); resolve(["flash", r]); } else if (liteR) resolve(["lite", liteR]); });
+        pLite.then((r) => { liteR = r; if (fullR) { if (!ok(fullR)) resolve(["lite", r]); } else if (ok(r)) timer = setTimeout(() => resolve(["lite", r]), 2500); else pFull.then((f) => resolve(ok(f) ? ["flash", f] : ["lite", r])); });
+      });
+      nxLog("mic use " + winner[0]);
+      const status = winner[1].status;
+      if (status === 429) throw new Error("Gemini の無料枠の上限に達しました。少し待ってからお試しください");
+      if (status >= 400 || !status) throw new Error("聞き取りに失敗しました（HTTP " + status + "）");
+      // 版138：声が入っていないのに名前（ネクサス）だけを返すことがある（会長：「クリックするだけでネクサスと読み違える」）。名前だけなら聞き取れなかった扱い
+      const heard = textOf(winner[1]);
+      // 版163：名前だけなら「呼ばれた」しるしを返す（いつも聞くでは「はい、会長」と答える）
+      return new RegExp("^[\\s。、！？!?.,「」]*(ネクサス|ねくさす|ネクサ|ネクス|ねくす|ネキサス|ネックス|ネクセス|ネクソス|nexus|nexis|nexas|neksus)[\\s。、！？!?.,「」]*$", "i").test(heard) ? "__WAKE__" : heard;
+    }
+    /* ---------- 版171：ジャービス方式（Gemini Live）。声をそのまま送り、声でそのまま返す ----------
+       会長：「時間がかかりすぎる。ボイスボックスのみに頼らない。API を使ったジャービスを模倣する」
+       聞き取り→答え→VOICEVOX の3段を、Gemini Live の1本の通信にまとめる（同じ無料の Gemini の鍵）。
+       使えないとき（モデルが無い・つながらない）は、これまでの方式で答える。 */
+    const nxLive = (() => {
+      const S = { ws: null, ready: null, model: undefined, offUntil: 0, toolMode: 2, turn: null, playAt: 0, playing: 0, closeAfter: false, srcs: [] };
+      const stopAll = () => { for (const x of S.srcs.slice()) { try { x.stop(); } catch (_) {} } S.playAt = 0; };
+      const log = (m) => nxLog("live " + m);
+      // 版174：記録では Live は道具を一度も使わなかった（検索も PC 操作もできない）。操作・今の事実が要る頼みは NEXUS が受け持つ
+      const ACT = /(開|起動|閉じ|音量|再生|次の曲|前の曲|一時停止|ミュート|ロック|リマインド|知らせ|タイマー|メモ|タスク|覚えて|忘れて|検索|調べ|ググ|YouTube|ユーチューブ|フォルダ|完了|消して|設定|アプリ|天気|気温|雨|ニュース|株|為替|ドル|円安|円高|値段|価格|いくら|最新|速報|試合|結果|選挙|地震|営業時間|詳しく|なぜ|理由|比較|違い|仕組み|計算|分析|相談|どう思う|意見|調べ)/i;
+      const NAME = /(ネクサス|ねくさす|ネクサ|ネクス|ねくす|ネキサス|ネックス|ネクセス|ネクソス|nexus|nexis|nexas|neksus)/i;
+      const b64ToBytes = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+      const bytesToB64 = (u) => { let s = ""; for (let i = 0; i < u.length; i += 32768) s += String.fromCharCode.apply(null, u.subarray(i, i + 32768)); return btoa(s); };
+      async function http(url, key) {
+        let raw = "", status;
+        if (window.__nxAppHttp) status = await window.__nxAppHttp(url, "GET", null, (l) => { raw += l + "\n"; }, { "x-goog-api-key": key });
+        else { const r = await fetch(url, { headers: { "x-goog-api-key": key } }); status = r.status; raw = await r.text(); }
+        return { status, raw };
+      }
+      // 使える Live のモデルを、Google の一覧から選ぶ（名前を決め打ちしない）
+      async function pickModel(key) {
+        if (S.model !== undefined) return S.model;
+        try {
+          const r = await http("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000", key);
+          const ids = ((JSON.parse(r.raw).models) || []).filter((m) => (m.supportedGenerationMethods || []).includes("bidiGenerateContent")).map((m) => String(m.name).replace(/^models\//, ""));
+          const ver = (id) => parseFloat((id.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+          const score = (id) => ver(id) * 10 + (/native-audio|live/.test(id) ? 3 : 0) - (/preview|exp/.test(id) ? 1 : 0);
+          S.cands = ids.sort((a, b) => score(b) - score(a) || a.length - b.length);
+          S.model = S.cands[0] || null;
+        } catch (e) { S.model = null; }
+        log("model " + S.model);
+        return S.model;
+      }
+      // 道具（PC 操作など）を Live の形に直す。調べものは Google 検索に任せる
+      const upper = (sc) => { if (!sc || typeof sc !== "object") return sc; const o = {}; for (const [k, v] of Object.entries(sc)) { if (k === "additionalProperties") continue; o[k] = k === "type" ? String(v).toUpperCase() : k === "properties" ? Object.fromEntries(Object.entries(v).map(([pk, pv]) => [pk, upper(pv)])) : k === "items" ? upper(v) : v; } return o; };
+      const decls = (withSearchFn) => AGENT_TOOLS.filter((t) => withSearchFn || t.function.name !== "search_answer").map((t) => ({ name: t.function.name, description: t.function.description, parameters: upper(t.function.parameters) }));
+      function sysText() {
+        let base = ""; try { base = buildAIMessages()[0].content; } catch (_) {}
+        return base + `\n\nこれは声の会話です。${db.title}に聞こえるように、日本語の自然な話し言葉で、普段は1〜3文で短く、結論から答えてください。記号や箇条書きは使わないでください。` +
+          `名前（ネクサス）だけを呼ばれたときは「はい、${db.title}、お呼びでしょうか。」とだけ答えてください。` +
+          "ニュース・値段・天気・人物など今の事実が大事な質問は、Google 検索で確かめてから答えてください。頼まれた操作は道具で実行し、結果を一言で伝えてください。";
+      }
+      function connect() {
+        if (S.ws && S.ws.readyState === 1 && S.ready) return S.ready;
+        const g = window.NexusAI && NexusAI.geminiFor && NexusAI.geminiFor();
+        if (!g || !g.key) return Promise.reject(new Error("no gemini key"));
+        if (g.prov && g.prov !== "gemini") return Promise.reject(new Error("not gemini (" + g.prov + ")"));
+        S.ready = (async () => {
+          let model = await pickModel(g.key);
+          if (!model) throw new Error("no live model");
+          for (;;) {
+            const tools = S.toolMode === 2 ? [{ googleSearch: {} }, { functionDeclarations: decls(false) }] : S.toolMode === 1 ? [{ functionDeclarations: decls(true) }] : [];
+            try { return await open(g.key, model, tools); }
+            catch (e) {
+              // 道具の形を断られたら、道具を減らしてつなぎ直す
+              if (e.setup && S.toolMode > 0) { S.toolMode--; log("setup refused, tools " + S.toolMode + ": " + e.message); continue; }
+              // 道具なしでも断られたら、次の候補のモデルで試す
+              if (e.setup && S.cands && S.cands.length > 1) { S.cands.shift(); model = S.model = S.cands[0]; S.toolMode = 2; log("next model " + model); continue; }
+              throw e;
+            }
+          }
+        })();
+        S.ready.catch(() => { S.ready = null; });
+        return S.ready;
+      }
+      function open(key, model, tools) {
+        return new Promise((resolve, reject) => {
+          const ws = new WebSocket("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=" + encodeURIComponent(key));
+          let done = false; const t0 = performance.now();
+          const timer = setTimeout(() => { if (!done) { done = true; reject(new Error("connect timeout")); try { ws.close(); } catch (_) {} } }, 10000);
+          ws.onopen = () => {
+            const setup = { model: "models/" + model, generationConfig: { responseModalities: ["AUDIO"] }, systemInstruction: { parts: [{ text: sysText() }] },
+              inputAudioTranscription: {}, outputAudioTranscription: {}, realtimeInputConfig: { automaticActivityDetection: { disabled: true } }, contextWindowCompression: { slidingWindow: {} } };
+            if (tools.length) setup.tools = tools;
+            ws.send(JSON.stringify({ setup }));
+          };
+          // 届いた順に1通ずつ処理する（バイナリの通は読むのに時間がかかり、後の通に追い越されるため）
+          let q = Promise.resolve();
+          ws.onmessage = (ev) => { q = q.then(async () => {
+            let msg; try { msg = JSON.parse(typeof ev.data === "string" ? ev.data : await ev.data.text()); } catch (_) { return; }
+            if (msg.setupComplete) { if (!done) { done = true; clearTimeout(timer); S.ws = ws; log(`ready ${model} tools ${tools.length} ${Math.round(performance.now() - t0)}ms`); resolve(ws); } return; }
+            onServer(msg);
+          }).catch(() => {}); };
+          ws.onerror = () => {};
+          ws.onclose = (ev) => {
+            clearTimeout(timer);
+            log("closed " + ev.code + " " + String(ev.reason || "").slice(0, 160));
+            if (S.ws === ws) { S.ws = null; S.ready = null; }
+            if (!done) { done = true; const e = new Error("closed " + ev.code + " " + (ev.reason || "")); e.setup = ev.code !== 1006; reject(e); }
+            if (S.turn && !S.turn.done && S.turn.ws === ws) finish("closed");
+          };
+        });
+      }
+      // 返ってきた声（24kHz の PCM）を、すき間なく続けて鳴らす
+      function play(b64, mime) {
+        const rate = +((String(mime || "").match(/rate=(\d+)/) || [])[1] || 24000);
+        const u = b64ToBytes(b64); const n = u.length >> 1; if (!n) return;
+        const dv = new DataView(u.buffer); const f = new Float32Array(n);
+        for (let i = 0; i < n; i++) f[i] = dv.getInt16(i * 2, true) / 32768;
+        nxOutStart();
+        const ctx = nxOut.ctx; const buf = ctx.createBuffer(1, n, rate); buf.copyToChannel(f, 0);
+        const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination);
+        if (S.playAt < ctx.currentTime + 0.03) S.playAt = ctx.currentTime + 0.03;
+        if (S.turn && !S.turn.firstAudio) { S.turn.firstAudio = performance.now(); log(`first audio ${Math.round(S.turn.firstAudio - S.turn.t0)}ms`); }
+        src.start(S.playAt); S.playAt += buf.duration; S.srcs.push(src);
+        S.playing++; nxPlaying++; holo.classList.add("speaking"); setTask("speaking", "LIVE", "応答中…", "CONVERSATION", "VOICE");
+        src.onended = () => { S.srcs = S.srcs.filter((x) => x !== src); S.playing--; nxPlaying = Math.max(0, nxPlaying - 1); if (!S.playing) { holo.classList.remove("speaking"); window.__nxFollowUntil = Date.now() + 30000; returnTaskToIdle(800); } };
+        vvAudio = { pause() { try { src.stop(); } catch (_) {} } };
+      }
+      function allow(t) {
+        if (t.allowed) return;
+        t.allowed = true;
+        setMode("voice");
+        route(t);
+        flush(t);
+      }
+      // 頼みの中身を見て、NEXUS の道具に回すかを決める（回すときは Live の声は鳴らさない）
+      function route(t) {
+        if (t.routed || t.sayOnly || !t.allowed || !ACT.test(t.user)) return;
+        t.routed = true; t.held = []; stopAll(); log("route agent \"" + t.user.slice(0, 30) + "\"");
+        // 道具に回すときは、これまでの方式が会長の言葉を出し直すので、途中まで出した文は消す
+        if (t.uEl) { t.uEl.remove(); t.uEl = null; }
+        if (t.bEl) { t.bEl.remove(); t.bEl = null; }
+      }
+      // 版179：会長の言葉と NEXUS の答えを、届いたそばから会話欄に出す（声に文字が追いつくように）
+      const saidOf = (t) => t.user.replace(new RegExp("^[\\s、。,!！?？]*" + NAME.source + "[\\s、。,!！?？]*", "i"), "").trim() || t.user.trim();
+      function liveText(t) {
+        if (!t.allowed || t.routed || t.sayOnly) return;
+        const said = saidOf(t);
+        if (said) { if (!t.uEl) t.uEl = addMessage("user", said, { noHistory: true }); else setMessageText(t.uEl, "user", said); }
+        const ans = t.bot.replace(/\s+/g, " ").trim();
+        if (ans) { if (!t.bEl) t.bEl = addMessage("nexus", ans, { noHistory: true }); else setMessageText(t.bEl, "nexus", ans); }
+      }
+      // 書き起こしが届くまでは声を鳴らさない（道具に回す頼みかどうか分からないため。0.6秒たったら鳴らす）
+      function flush(t) {
+        if (!t.allowed || t.routed || (!t.user && !t.waited && !t.sayOnly)) return;
+        for (const [b, m] of t.held) play(b, m);
+        t.held = [];
+      }
+      // 会長の言葉を会話欄（と履歴）に出してから、道具を動かす（頼まれた操作かどうかを、会長の言葉で確かめるため）
+      function showUser(t) {
+        if (!t.allowed || t.shown || !t.user.trim()) return;
+        t.shown = true;
+        const said = saidOf(t);
+        if (t.uEl) { setMessageText(t.uEl, "user", said); pushHistory("user", said); } else t.uEl = addMessage("user", said);
+        for (const c of t.calls) runCall(c);
+        t.calls = [];
+      }
+      async function runCall(c) {
+        const t = S.turn; if (t) t.pending = (t.pending || 0) + 1;
+        let result;
+        try { result = await runTool(c.name, c.args || {}); } catch (e) { result = "失敗：" + (e.message || e); }
+        log("tool " + c.name); if (S.turn) S.turn.toolRan = true;
+        try { S.ws && S.ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: c.id, name: c.name, response: { result: String(result).slice(0, 2000) } }] } })); } catch (_) {}
+        if (t) t.pending--;
+      }
+      function onServer(msg) {
+        const t = S.turn;
+        if (msg.goAway) { S.closeAfter = true; log("go away"); }
+        if (msg.toolCall && t && t.routed) { for (const c of msg.toolCall.functionCalls || []) { try { S.ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: c.id, name: c.name, response: { result: "NEXUS が別に処理します。何も言わないでください" } }] } })); } catch (_) {} } }
+        else if (msg.toolCall && t) {
+          clearTimeout(t.grace);
+          for (const c of msg.toolCall.functionCalls || []) {
+            if (t.allowed && t.shown) runCall(c);
+            else if (t.decided) { try { S.ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: c.id, name: c.name, response: { result: "呼ばれていないので実行しません" } }] } })); } catch (_) {} }
+            else t.calls.push(c);
+          }
+        }
+        const sc = msg.serverContent; if (!sc || !t) return;
+        if (sc.inputTranscription && sc.inputTranscription.text) { t.user += sc.inputTranscription.text; if (!t.allowed && !t.decided && NAME.test(t.user)) allow(t); else { route(t); flush(t); } liveText(t); }
+        if (sc.outputTranscription && sc.outputTranscription.text) { t.bot += sc.outputTranscription.text; liveText(t); }
+        for (const p of (sc.modelTurn && sc.modelTurn.parts) || []) {
+          const d = p.inlineData; if (!d || !/audio/.test(d.mimeType || "")) continue;
+          t.got = true;
+          if (t.routed) continue;
+          t.held.push([d.data, d.mimeType]);
+          if (!t.user && !t.waitTimer) t.waitTimer = setTimeout(() => { t.waited = true; flush(t); }, 600);
+          flush(t);
+        }
+        if (sc.interrupted) { log("interrupted"); stopAll(); }
+        // 版173：道具の結果を待っているあいだに届いた「ターン終わり」では終えない（記録：調べもののあとの答えが鳴らなかった）
+        if (sc.turnComplete) {
+          clearTimeout(t.grace);
+          if (t.allowed && (t.calls.length || t.pending)) { showUser(t); for (const c of t.calls) runCall(c); t.calls = []; log("turn waits for tool"); }
+          // 声が無いまま終わったときは、道具の呼び出しが後から届くことがある（記録）。1.5秒だけ待つ
+          else if (t.allowed && !t.got) t.grace = setTimeout(() => finish("complete"), 1500);
+          else finish("complete");
+        }
+      }
+      function finish(why) {
+        const t = S.turn; if (!t || t.done) return;
+        t.done = true; clearTimeout(t.timer); S.turn = null;
+        if (!t.allowed) {
+          log(`ignored (no name) "${t.user.slice(0, 30)}"`);
+          setMode("idle"); returnTaskToIdle(300);
+        } else if (t.routed) {
+          const said = t.user.replace(new RegExp("^[\\s、。,!！?？]*" + NAME.source + "[\\s、。,!！?？]*", "i"), "").trim() || t.user.trim();
+          log(`turn routed ${Math.round(performance.now() - t.t0)}ms`);
+          setTimeout(() => submitCommand("voice", said), 0);
+        } else if (t.sayOnly) {
+          log(`say done ${Math.round(performance.now() - t.t0)}ms first ${t.firstAudio ? Math.round(t.firstAudio - t.t0) : "-"}ms`);
+        } else {
+          showUser(t);
+          for (const c of t.calls) runCall(c);
+          const ans = t.bot.replace(/\s+/g, " ").trim();
+          if (ans) { if (t.bEl) { setMessageText(t.bEl, "nexus", ans); pushHistory("nexus", ans); } else addMessage("nexus", ans); }
+          log(`turn ${why} ${Math.round(performance.now() - t.t0)}ms user ${t.user.length}字 bot ${ans.length}字`);
+          if (!t.got) returnTaskToIdle(300);
+        }
+        if (S.closeAfter && S.ws) { S.closeAfter = false; try { S.ws.close(); } catch (_) {} }
+        t.resolve(t.got || t.toolRan || why === "complete");
+      }
+      // 区切った声（16kHz の WAV）を1回分として送る。使えなければ false（これまでの方式で答える）
+      async function ask(b64wav, auto) {
+        if (Date.now() < S.offUntil) { log("skip (off for " + Math.round((S.offUntil - Date.now()) / 1000) + "s)"); return false; }
+        if (S.model === null) S.model = undefined;
+        let ws;
+        try { ws = await connect(); }
+        catch (e) { log("unavailable: " + (e.message || e)); S.offUntil = Date.now() + (S.model === null ? 3600000 : 300000); return false; }
+        if (S.turn && !S.turn.done) finish("next");
+        const wavU = b64ToBytes(b64wav); let at = 12, pcm = wavU.subarray(44);
+        while (at + 8 <= wavU.length) { const id = String.fromCharCode(wavU[at], wavU[at + 1], wavU[at + 2], wavU[at + 3]); const len = wavU[at + 4] | (wavU[at + 5] << 8) | (wavU[at + 6] << 16) | (wavU[at + 7] << 24); if (id === "data") { pcm = wavU.subarray(at + 8, Math.min(wavU.length, at + 8 + len)); break; } at += 8 + len + (len & 1); }
+        const t = { user: "", bot: "", held: [], calls: [], allowed: false, shown: false, decided: false, got: false, done: false, t0: performance.now(), firstAudio: 0 };
+        t.ws = ws; S.turn = t;
+        const p = new Promise((res) => { t.resolve = res; });
+        t.timer = setTimeout(() => finish("timeout"), 30000);
+        if (!auto || Date.now() < (window.__nxFollowUntil || 0)) allow(t);
+        setTask("thinking", "LIVE", "聞いています…", null, "VOICE RESPONSE");
+        try {
+          ws.send(JSON.stringify({ realtimeInput: { activityStart: {} } }));
+          for (let i = 0; i < pcm.length; i += 32000) ws.send(JSON.stringify({ realtimeInput: { audio: { data: bytesToB64(pcm.subarray(i, i + 32000)), mimeType: "audio/pcm;rate=16000" } } }));
+          ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }));
+        } catch (e) { finish("send error"); return false; }
+        log(`sent ${Math.round(pcm.length / 32)}ms of voice`);
+        // 書き起こしが届いたら名前を確かめる。2.5秒待っても名前が無ければ、届いた声は鳴らさない
+        setTimeout(() => { if (!t.allowed) { t.decided = true; for (const c of t.calls) { try { S.ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: c.id, name: c.name, response: { result: "呼ばれていないので実行しません" } }] } })); } catch (_) {} } t.calls = []; } }, 2500);
+        return await p;
+      }
+      // 起動して15秒後に、使える Live のモデルだけ確かめておく（記録に残す。通信はまだつながない）
+      setTimeout(() => { const g = window.NexusAI && NexusAI.geminiFor && NexusAI.geminiFor(); if (g && g.key) pickModel(g.key).catch(() => {}); else log("no key at start"); }, 15000);
+      // 版174：NEXUS が道具で作った答えを、Live の声で読む（VOICEVOX を待たない）。つながっていなければ false
+      function say(text) {
+        if (!S.ws || S.ws.readyState !== 1 || !text) return false;
+        if (S.turn && !S.turn.done) finish("next");
+        const t = { user: "", bot: "", held: [], calls: [], allowed: true, shown: true, sayOnly: true, decided: true, got: false, done: false, t0: performance.now(), firstAudio: 0, ws: S.ws };
+        t.resolve = () => {}; S.turn = t; t.timer = setTimeout(() => finish("timeout"), 30000);
+        try { S.ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: "次の文章を、言い換えや前置きをせず、そのまま自然な日本語で読み上げてください。\n\n" + text }] }], turnComplete: true } })); }
+        catch (_) { finish("send error"); return false; }
+        return true;
+      }
+      return { ask, say, state: S };
+    })();
+    let micTimer = 0;
+    const micReset = () => { clearTimeout(micTimer); micManualOn = false; micBtn.classList.remove("voice-on", "mic-manual-on"); };
+    window.__nxMic = {
+      ready() { setTask("listening", "MIC", "録音中…話し終えたら、もう一度 Mic を押してください。", null, "VOICE RESPONSE"); },
+      result(text) { if (micManualOn && text.trim()) submitCommand("voice", text.trim()); },
+      async audio(b64, auto) {
+        if (auto && window.__nxListen) window.__nxListen.heard();
+        nxLog((auto ? "listen audio " : "mic audio ") + Math.round(b64.length * 3 / 4 / 1024) + "KB");
+        // 版171：まずジャービス方式（Gemini Live）で、声のまま答える。使えなければこれまでの方式
+        try { if (await nxLive.ask(b64, auto)) return; } catch (e) { nxLog("live error " + (e.message || e)); }
+        setTask("thinking", "MIC", "聞き取り中…", null, "VOICE RESPONSE");
+        try {
+          let text = await nxTranscribe(b64);
+          nxLog("mic text " + text.length + "字");
+          // 版163：「ネクサス」とだけ呼ばれたら「はい、会長、お呼びでしょうか」と答え、30秒は名前なしで話せる
+          if (text === "__WAKE__") {
+            if (!auto) text = "";
+            else { setMode("voice"); const m = `はい、${db.title}、お呼びでしょうか。`; addMessage("nexus", m); speak(m, true); window.__nxFollowUntil = Date.now() + 30000; returnTaskToIdle(1500); return; }
+          }
+          if (!text) { setMode("idle"); returnTaskToIdle(300); if (auto) return; return addMessage("nexus", "声が聞き取れませんでした。もう少し大きな声で、もう一度お願いします。"); }
+          // 版154：ジャービス式。いつも聞くでは「ネクサス」と呼ばれたときに答える（テレビや動画の人の声に答えないため）。
+          // 答えたあと30秒は、名前を呼ばずに続けて話せる
+          if (auto) {
+            // 版163：聞き取りが名前を少し違えても（ネクス・ネキサスなど）呼ばれたことにする
+            const named = new RegExp("(ネクサス|ねくさす|ネクサ|ネクス|ねくす|ネキサス|ネックス|ネクセス|ネクソス|nexus|nexis|nexas|neksus)", "i").test(text);
+            if (!named && Date.now() > (window.__nxFollowUntil || 0)) { nxLog("listen ignored (no name)"); setMode("idle"); returnTaskToIdle(300); return; }
+            text = text.replace(new RegExp("^[\\s、。,!！?？]*(ネクサス|ねくさす|ネクサ|ネクス|ねくす|ネキサス|ネックス|ネクセス|ネクソス|nexus|nexis|nexas|neksus)[\\s、。,!！?？]*", "i"), "").trim() || text;
+          }
+          submitCommand("voice", text);
+        } catch (e) { setMode("idle"); returnTaskToIdle(300); addMessage("nexus", `マイク：${e.message || e}`); }
+      },
+      error(msg) { if (window.__nxMicUnmute) window.__nxMicUnmute(); micReset(); setMode("idle"); addMessage("nexus", `マイクでエラーが出ました：${msg}`); },
+    };
+    if (window.__NEXUS_APP__ && window.ipc) {
+      // 版138：録音中に PC の音を消すのはやめた（押すたびに左上に音量の表示が出ていた。会長の指摘）
+      const micUnmute = () => {};
+      window.__nxMicUnmute = micUnmute;
+      const micStop = () => { window.__t0 = performance.now(); nxLog("mic stop"); micUnmute(); micReset(); typingStatus.textContent = ""; setTask("thinking", "MIC", "聞き取り中…", null, "VOICE RESPONSE"); window.ipc.postMessage("mic-stop"); };
+      // 版140：いつも聞く（会長：「普段はマイクオン、声をかけたら返答する。キーボードを使い始めたらマイクオフ」）
+      // Mic は「いつも聞く」の入・切。キーを打つと30秒聞かない。考え中・話し中も聞かない（自分の声を拾わない）
+      // 版153：いつも聞くは作り直すまで止め、Mic ボタン（押して話す）に戻した
+      // 版154：ジャービス式の耳（Silero VAD：人の声だけを見分ける小さな AI）が PC にあれば、いつも聞くを戻す
+      const L = window.__nxListen = { failed: !window.__NEXUS_VAD__, sent: null, typingUntil: 0, quietUntil: 0,
+        heard() { L.sent = false; },
+        fail() { if (L.failed) return; L.failed = true; L.sent = false; micBtn.classList.remove("mic-manual-on"); addMessage("nexus", "マイクで「いつも聞く」を始められませんでした。Mic を押すと、これまでどおり録音します。"); } };
+      // 版149：Mic ボタンは消した。いつも聞く（キーを打つと30秒止まる）
+      const listenOn = () => db.listen !== false && !L.failed;
+      // 版161：Claude のアプリと同じ耳。Chromium のマイク（雑音消し・反響消し・音量の自動調整つき）で聞き、
+      // 声のかたまりを切り出して聞き取りに回す（会長：「同じマイクなのに Claude Code はちゃんと聞き取れてる」）
+      (async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+          const ctx = new AudioContext({ sampleRate: 16000 });
+          const wake = () => { if (ctx.state !== "running") ctx.resume().catch(() => {}); };
+          wake(); ["pointerdown", "keydown"].forEach((ev) => document.addEventListener(ev, wake, true)); setInterval(wake, 3000);
+          const src = ctx.createMediaStreamSource(stream);
+          const proc = ctx.createScriptProcessor(2048, 1, 1);   // 2048 標本＝0.128秒
+          const mute = ctx.createGain(); mute.gain.value = 0;
+          src.connect(proc); proc.connect(mute); mute.connect(ctx.destination);
+          let floor = 0, on = false, loud = 0, quiet = 0, voiced = 0, cur = [], pre = [], n = 0, peak = 0;
+          const wav = (chunks) => {
+            const len = chunks.reduce((a, c) => a + c.length, 0), buf = new ArrayBuffer(44 + len * 2), v = new DataView(buf);
+            const w = (o, t) => { for (let k = 0; k < t.length; k++) v.setUint8(o + k, t.charCodeAt(k)); };
+            w(0, "RIFF"); v.setUint32(4, 36 + len * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+            v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, len * 2, true);
+            let o = 44; for (const c of chunks) for (let k = 0; k < c.length; k++, o += 2) v.setInt16(o, Math.max(-1, Math.min(1, c[k])) * 32767, true);
+            let bin = ""; const u = new Uint8Array(buf); for (let k = 0; k < u.length; k += 32768) bin += String.fromCharCode.apply(null, u.subarray(k, k + 32768));
+            return btoa(bin);
+          };
+          proc.onaudioprocess = (e) => {
+            const x = new Float32Array(e.inputBuffer.getChannelData(0));
+            let sum = 0; for (let k = 0; k < x.length; k++) sum += x[k] * x[k];
+            const rms = Math.sqrt(sum / x.length); peak = Math.max(peak, rms);
+            if (++n % 50 === 0) { nxLog(`listen js 5s room ${Math.round(floor * 32768)} loudest ${Math.round(peak * 32768)}`); peak = 0; }
+            if (!L.sent) { on = false; loud = 0; cur = []; pre = []; return; }
+            if (!on) {
+              floor = floor === 0 ? rms : rms < floor ? floor * 0.8 + rms * 0.2 : floor * 0.995 + rms * 0.005;
+              // 版162：記録では雑音消しのあと部屋の音は約850、声は1,000〜2,600（1.2〜3倍）。2.5倍では声を取りこぼしていた
+              const th = Math.max(floor * 1.35, 0.003);   // 版163：記録では声の山が1,200〜1,800（部屋の音の1.4〜2倍）
+              pre.push(x); if (pre.length > 4) pre.shift();
+              loud = rms > th ? loud + 1 : 0;
+              if (loud >= 2) { on = true; L.th = th; cur = pre.slice(); pre = []; voiced = 2; quiet = 0; }
+              return;
+            }
+            cur.push(x);
+            if (rms > L.th) { voiced++; quiet = 0; } else if (rms < L.th * 0.8) quiet++;
+            if (quiet >= 7 || cur.length >= 117) {
+              on = false; loud = 0; const got = cur; cur = [];
+              if (voiced >= 4) { nxLog(`listen js heard ${got.length * 128} ms`); window.__nxMic.audio(wav(got), true); }
+            }
+          };
+          L.js = true; L.failed = false; nxLog("listen js ready (Chromium noise suppression)");
+          try { window.ipc.postMessage("listen-off"); } catch (_) {}
+        } catch (e) { nxLog("listen js unavailable: " + (e && (e.name || e.message))); }
+      })();
+      const busy = () => { const st = taskPanel.dataset.state; return micManualOn || nxPlaying > 0 || (window.__nxSpeakPending || 0) > 0 || (window.speechSynthesis && speechSynthesis.speaking) || ((st === "thinking" || st === "speaking" || st === "listening") && Date.now() - (window.__nxTaskAt || 0) < 45000); };
+      document.addEventListener("keydown", (e) => { if (!["Shift", "Control", "Alt", "Meta"].includes(e.key)) L.typingUntil = Date.now() + 30000; }, true);
+      setInterval(() => {
+        const now = Date.now();
+        if (busy()) { L.quietUntil = now + 700; L.wasBusy = true; } else if (L.wasBusy) { L.wasBusy = false; window.__nxFollowUntil = now + 30000; }
+        const want = listenOn() && now > L.typingUntil && now > L.quietUntil;
+        if (want !== L.sent) { L.sent = want; if (!L.js) window.ipc.postMessage(want ? "listen-on" : "listen-off"); nxLog(want ? "listen want on" : "listen want off"); }
+        if (!micManualOn) micBtn.classList.toggle("mic-manual-on", listenOn() && now > L.typingUntil);
+      }, 250);
+      micBtn.addEventListener("click", () => {
+        if (!L.failed) { db.listen = db.listen === false; save(); addMessage("nexus", db.listen ? "いつも聞くをオンにしました。「ネクサス、〇〇」と呼びかけてください（答えたあと30秒は名前なしで続けて話せます）。" : "いつも聞くをオフにしました。"); return; }
+        if (micManualOn) return micStop();
+        micManualOn = true; micBtn.classList.add("voice-on");
+        setMode("voice"); typingStatus.textContent = "";
+        setTask("listening", "MIC", "マイクを起動中…", null, "VOICE RESPONSE");
+        if (vvAudio && vvAudio.pause) try { vvAudio.pause(); } catch (_) {}
+        window.ipc.postMessage("mic-start");
+        micTimer = setTimeout(() => { if (micManualOn) micStop(); }, 30000);   // 30秒たったら自動で止めて送る
+      });
+    }
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognitionRef = recognition;
+      recognition.lang = "ja-JP";
+      recognition.interimResults = true;
+      recognition.continuous = true;
+      recognition.onstart = () => {
+        setMode("voice");
+        setTask("listening", "LISTENING", "音声入力中…お話しください。", null, "VOICE RESPONSE");
+      };
+      recognition.onend = () => {
+        if (micManualOn && !speakingNow) { try { recognition.start(); } catch (_) {} return; }
+        if (!micManualOn && !getEditorText()) { setMode("idle"); typingStatus.textContent = ""; }
+      };
+      recognition.onerror = (e) => {
+        if (e.error === "no-speech" || e.error === "aborted") return;
+        micManualOn = false; micBtn.classList.remove("voice-on", "mic-manual-on");
+        const why = { "not-allowed": "マイクの使用が許可されていません", "service-not-allowed": "音声認識のサービスが許可されていません", "audio-capture": "マイクが見つかりません", "network": "音声認識の通信に失敗しました" }[e.error] || "音声認識でエラーが出ました";
+        addMessage("nexus", `${why}（${e.error}）。`);
+      };
+      recognition.onresult = (event) => {
+        if (speakingNow) return;
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            const transcript = res[0].transcript.trim();
+            typingStatus.textContent = "";
+            if (transcript) submitCommand("voice", transcript);
+          } else interim += res[0].transcript;
+        }
+        if (interim) typingStatus.textContent = interim;
+      };
+      micBtn.addEventListener("click", () => {
+        micManualOn = !micManualOn;
+        micBtn.classList.toggle("voice-on", micManualOn);
+        if (micManualOn) {
+          setMode("voice");
+          typingStatus.textContent = "";
+          setTask("listening", "MIC", "マイクを起動中…許可を求められたら許可してください。", null, "VOICE RESPONSE");
+          try { recognition.start(); } catch (_) {}
+        } else {
+          try { recognition.stop(); } catch (_) {}
+          setMode("idle"); typingStatus.textContent = "";
+          returnTaskToIdle(300);
+        }
+      });
+    } else {
+      if (!window.__NEXUS_APP__) {
+        micBtn.title = "このブラウザは音声入力に対応していません（Chrome / Edge 推奨）";
+        micBtn.addEventListener("click", () => addMessage("nexus", "このブラウザは音声入力に対応していません。Chrome または Edge でお試しください。テキスト入力はそのままご利用いただけます。"));
+      }
+    }
+
+    /* ---------- 背景パーティクル ---------- */
+    const canvas = document.getElementById("particles");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      particles = Array.from({ length: Math.min(48, Math.floor(window.innerWidth / 28)) }, () => ({
+        x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+        r: Math.random() * 1.6 + 0.3, vx: (Math.random() - 0.5) * 0.16, vy: (Math.random() - 0.5) * 0.16, a: Math.random() * 0.5 + 0.15
+      }));
+    }
+    function drawParticles() {
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      for (const p of particles) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = window.innerWidth; if (p.x > window.innerWidth) p.x = 0;
+        if (p.y < 0) p.y = window.innerHeight; if (p.y > window.innerHeight) p.y = 0;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(83, 215, 255, ${p.a})`; ctx.fill();
+      }
+      requestAnimationFrame(drawParticles);
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    drawParticles();
+  </script>
+
+<script>
+/* Micro-corona: many independent short surface flares.
+   Each one rises a few pixels from the core edge and returns. */
+(()=>{
+ const c=document.getElementById('microCorona');
+ if(!c) return;
+ const x=c.getContext('2d');
+ let W=0,H=0,D=1,t0=performance.now();
+ const N=72;
+ const f=Array.from({length:N},(_,i)=>({
+   a:(i/N)*Math.PI*2+(Math.random()-.5)*.055,
+   phase:Math.random()*Math.PI*2,
+   speed:.55+Math.random()*1.7,
+   amp:.018+Math.random()*.050,
+   width:.35+Math.random()*1.05,
+   flick:.65+Math.random()*1.5
+ }));
+ function resize(){
+   const r=c.getBoundingClientRect(); D=Math.min(devicePixelRatio||1,1.0);
+   W=Math.max(1,r.width); H=Math.max(1,r.height);
+   c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0);
+ }
+ function draw(now){
+   if(draw.last && now-draw.last<32){requestAnimationFrame(draw);return;}
+   draw.last=now;
+   x.clearRect(0,0,W,H);
+   const cx=W/2,cy=H/2,R=Math.min(W,H)*.355;
+   const t=(now-t0)/1000;
+   x.globalCompositeOperation='lighter';
+   for(let i=0;i<N;i++){
+     const q=f[i];
+     // Individual pulse: mostly near surface, briefly rises, then returns.
+     const cycle=(t*q.speed*.22 + q.phase/6.283)%1;
+     const pulse=Math.pow(Math.max(0,Math.sin(Math.PI*2*cycle)),3.0);
+     const jitter=.35*Math.sin(t*q.flick*2.1+q.phase*1.7);
+     const a=q.a + .008*Math.sin(t*.23+q.phase);
+     const base=R + jitter;
+     const len=1.2 + pulse*(R*q.amp);
+     const bend=(Math.sin(t*.7+q.phase)*.018);
+     const a2=a+bend;
+     const x1=cx+Math.cos(a)*base, y1=cy+Math.sin(a)*base;
+     const x2=cx+Math.cos(a2)*(base+len), y2=cy+Math.sin(a2)*(base+len);
+     const alpha=.18+pulse*.70;
+     const g=x.createLinearGradient(x1,y1,x2,y2);
+     g.addColorStop(0,`rgba(255,245,176,${alpha})`);
+     g.addColorStop(.38,`rgba(255,173,49,${alpha*.95})`);
+     g.addColorStop(1,`rgba(255,62,18,0)`);
+     x.strokeStyle=g;x.lineWidth=q.width;x.lineCap='round';
+     x.beginPath();x.moveTo(x1,y1);
+     // tiny curved tongue, never a long radial spike
+     const mx=(x1+x2)/2 + Math.cos(a+Math.PI/2)*len*.18;
+     const my=(y1+y2)/2 + Math.sin(a+Math.PI/2)*len*.18;
+     x.quadraticCurveTo(mx,my,x2,y2);x.stroke();
+   }
+   requestAnimationFrame(draw);
+ }
+ new ResizeObserver(resize).observe(c);resize();requestAnimationFrame(draw);
+})();
+</script>
+
+
+<script>
+(()=>{
+ const c=document.getElementById('visibleCorona'); if(!c)return;
+ const g=c.getContext('2d'); let W=0,H=0,D=1;
+ const N=22;
+ const fs=Array.from({length:N},(_,i)=>({
+   a:(i/N)*Math.PI*2+(Math.random()-.5)*.16,
+   phase:Math.random()*6.283,
+   speed:.38+Math.random()*.72,
+   amp:.045+Math.random()*.075,
+   w:1.05+Math.random()*1.5,
+   bend:(Math.random()-.5)*.55
+ }));
+ function resize(){
+   const r=c.getBoundingClientRect(); D=Math.min(devicePixelRatio||1,1.0);
+   W=r.width;H=r.height;c.width=W*D;c.height=H*D;g.setTransform(D,0,0,D,0,0);
+ }
+ function frame(ms){
+   if(frame.last && ms-frame.last<32){requestAnimationFrame(frame);return;}
+   frame.last=ms;
+   g.clearRect(0,0,W,H);g.globalCompositeOperation='lighter';
+   const t=ms/1000,cx=W/2,cy=H/2,R=Math.min(W,H)*.326;
+   for(const q of fs){
+     const cycle=(t*q.speed*.17 + q.phase/6.283)%1;
+     const pulse=Math.pow(Math.max(0,Math.sin(Math.PI*2*cycle)),2.7);
+     if(pulse<.035) continue;
+     const a=q.a+.012*Math.sin(t*.31+q.phase);
+     const len=2.2+R*q.amp*pulse;
+     const x1=cx+Math.cos(a)*R,y1=cy+Math.sin(a)*R;
+     const a2=a+q.bend*.10*pulse;
+     const x2=cx+Math.cos(a2)*(R+len),y2=cy+Math.sin(a2)*(R+len);
+     const mx=(x1+x2)/2+Math.cos(a+Math.PI/2)*len*q.bend*.35;
+     const my=(y1+y2)/2+Math.sin(a+Math.PI/2)*len*q.bend*.35;
+     const grad=g.createLinearGradient(x1,y1,x2,y2);
+     grad.addColorStop(0,`rgba(255,250,190,${.82*pulse})`);
+     grad.addColorStop(.42,`rgba(255,170,42,${.92*pulse})`);
+     grad.addColorStop(1,'rgba(255,48,12,0)');
+     g.strokeStyle=grad;g.lineWidth=q.w;g.lineCap='round';
+     g.beginPath();g.moveTo(x1,y1);g.quadraticCurveTo(mx,my,x2,y2);g.stroke();
+   }
+   requestAnimationFrame(frame);
+ }
+ new ResizeObserver(resize).observe(c);resize();requestAnimationFrame(frame);
+})();
+</script>
+
+
+<script>
+(()=>{
+ const c=document.getElementById('fineWavyCorona'); if(!c)return;
+ const x=c.getContext('2d'); let W=0,H=0,D=1;
+ const N=30;
+ const F=Array.from({length:N},(_,i)=>({
+   a:(i/N)*Math.PI*2+(Math.random()-.5)*.11,
+   phase:Math.random()*6.283,
+   speed:.42+Math.random()*.85,
+   len:.030+Math.random()*.050,
+   wig:.7+Math.random()*1.7,
+   w:.35+Math.random()*.65
+ }));
+ function resize(){
+   const r=c.getBoundingClientRect();D=Math.min(devicePixelRatio||1,1.0);
+   W=r.width;H=r.height;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0);
+ }
+ function frame(ms){
+   if(frame.last && ms-frame.last<32){requestAnimationFrame(frame);return;}
+   frame.last=ms;
+   x.clearRect(0,0,W,H);x.globalCompositeOperation='lighter';
+   const t=ms/1000,cx=W/2,cy=H/2,R=Math.min(W,H)*.315;
+   for(const q of F){
+     const cycle=(t*q.speed*.19 + q.phase/6.283)%1;
+     const p=Math.pow(Math.max(0,Math.sin(Math.PI*2*cycle)),2.9);
+     if(p<.04)continue;
+     const a=q.a+.009*Math.sin(t*.35+q.phase);
+     const L=1.5+R*q.len*p;
+     const bx=cx+Math.cos(a)*R, by=cy+Math.sin(a)*R;
+     const tx=-Math.sin(a), ty=Math.cos(a), rx=Math.cos(a), ry=Math.sin(a);
+     x.beginPath();x.moveTo(bx,by);
+     const steps=7;
+     for(let j=1;j<=steps;j++){
+       const u=j/steps;
+       const outward=L*u;
+       // fine S-shaped wavering rather than a straight spike
+       const sway=Math.sin(u*Math.PI*2.15 + t*q.wig + q.phase)*L*.16*p*(1-u*.35);
+       const px=bx+rx*outward+tx*sway;
+       const py=by+ry*outward+ty*sway;
+       x.lineTo(px,py);
+     }
+     const alpha=.22+.62*p;
+     const ex=bx+rx*L, ey=by+ry*L;
+     const gr=x.createLinearGradient(bx,by,ex,ey);
+     gr.addColorStop(0,`rgba(255,247,188,${alpha})`);
+     gr.addColorStop(.5,`rgba(255,151,34,${alpha*.86})`);
+     gr.addColorStop(1,'rgba(255,54,12,0)');
+     x.strokeStyle=gr;x.lineWidth=q.w;x.lineCap='round';x.lineJoin='round';x.stroke();
+   }
+   requestAnimationFrame(frame);
+ }
+ new ResizeObserver(resize).observe(c);resize();requestAnimationFrame(frame);
+})();
+</script>
+
+
+<script>
+(()=>{
+ const c=document.getElementById('outerWavyCorona'); if(!c)return;
+ const x=c.getContext('2d'); let W=0,H=0,D=1;
+ const N=76;
+ const F=Array.from({length:N},(_,i)=>({
+   a:(i/N)*Math.PI*2+(Math.random()-.5)*.09,
+   phase:Math.random()*Math.PI*2,
+   speed:.34+Math.random()*.72,
+   len:.018+Math.random()*.042,
+   wig:.45+Math.random()*1.25,
+   w:.28+Math.random()*.58
+ }));
+ function resize(){
+   const r=c.getBoundingClientRect(); D=Math.min(devicePixelRatio||1,1.0);
+   W=r.width;H=r.height;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0);
+ }
+ function frame(ms){
+   if(frame.last && ms-frame.last<32){requestAnimationFrame(frame);return;}
+   frame.last=ms;
+   x.clearRect(0,0,W,H);x.globalCompositeOperation='lighter';
+   const t=ms/1000,cx=W/2,cy=H/2,R=Math.min(W,H)*.385;
+   for(const q of F){
+     const cycle=(t*q.speed*.145 + q.phase/6.283)%1;
+     const p=Math.pow(Math.max(0,Math.sin(Math.PI*2*cycle)),3.1);
+     if(p<.05)continue;
+     const a=q.a+.006*Math.sin(t*.27+q.phase);
+     const L=1+R*q.len*p;
+     const rx=Math.cos(a),ry=Math.sin(a),tx=-ry,ty=rx;
+     const bx=cx+rx*R,by=cy+ry*R;
+     x.beginPath();x.moveTo(bx,by);
+     for(let j=1;j<=6;j++){
+       const u=j/6;
+       const sway=Math.sin(u*Math.PI*2+t*q.wig+q.phase)*L*.18*p;
+       x.lineTo(bx+rx*L*u+tx*sway,by+ry*L*u+ty*sway);
+     }
+     const ex=bx+rx*L,ey=by+ry*L;
+     const gr=x.createLinearGradient(bx,by,ex,ey);
+     gr.addColorStop(0,`rgba(255,231,139,${.20+.52*p})`);
+     gr.addColorStop(.5,`rgba(255,130,29,${.16+.44*p})`);
+     gr.addColorStop(1,'rgba(255,47,12,0)');
+     x.strokeStyle=gr;x.lineWidth=q.w;x.lineCap='round';x.lineJoin='round';x.stroke();
+   }
+   requestAnimationFrame(frame);
+ }
+ new ResizeObserver(resize).observe(c);resize();requestAnimationFrame(frame);
+})();
+</script>
+
+
+<script>
+(()=>{
+ const c=document.getElementById('liquidCore'); if(!c)return;
+ const x=c.getContext('2d'); let W=0,H=0,D=1;
+ function resize(){
+   const r=c.getBoundingClientRect();D=Math.min(devicePixelRatio||1,1.0);
+   W=r.width;H=r.height;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0);
+ }
+ function frame(ms){
+   if(frame.last && ms-frame.last<32){requestAnimationFrame(frame);return;} frame.last=ms;
+   x.clearRect(0,0,W,H);
+   const t=ms/1000,cx=W/2,cy=H/2,R=Math.min(W,H)*.47;
+   x.save();x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.clip();
+   // soft molten base
+   const rg=x.createRadialGradient(cx-W*.08,cy-H*.10,R*.05,cx,cy,R);
+   rg.addColorStop(0,'rgba(255,245,175,.58)');
+   rg.addColorStop(.42,'rgba(255,137,34,.38)');
+   rg.addColorStop(1,'rgba(151,18,11,.14)');
+   x.fillStyle=rg;x.fillRect(0,0,W,H);
+   // a few slow, irregular liquid currents — deliberately subtle
+   x.globalCompositeOperation='lighter';
+   for(let k=0;k<12;k++){
+     const yy=cy + Math.sin(t*(.22+k*.032)+k*1.7)*R*(.18+k*.025);
+     x.beginPath();
+     for(let i=0;i<=30;i++){
+       const u=i/30, px=cx-R+2*R*u;
+       const py=yy + Math.sin(u*Math.PI*(1.4+k*.18)+t*(.22+k*.018)+k)*R*(.064+k*.0055);
+       if(i===0)x.moveTo(px,py);else x.lineTo(px,py);
+     }
+     x.strokeStyle=`rgba(255,${150+k*12},${35+k*7},${.105+k*.011})`;
+     x.lineWidth=1.25+k*.22;x.lineCap='round';x.stroke();
+   }
+   x.restore();requestAnimationFrame(frame);
+ }
+ new ResizeObserver(resize).observe(c);resize();requestAnimationFrame(frame);
+})();
+</script>
+
+
+<script>
+(()=>{
+ const c=document.getElementById('oceanSurface'); if(!c)return;
+ const x=c.getContext('2d'); let W=0,H=0,D=1;
+ function resize(){
+   const r=c.getBoundingClientRect();D=Math.min(devicePixelRatio||1,1.0);
+   W=r.width;H=r.height;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0);
+ }
+ function frame(ms){
+   if(frame.last && ms-frame.last<32){requestAnimationFrame(frame);return;} frame.last=ms;
+   x.clearRect(0,0,W,H);
+   const t=ms/1000,cx=W/2,cy=H/2,R=Math.min(W,H)*.485;
+   x.save();x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.clip();
+   x.globalCompositeOperation='lighter';
+
+   // many small crossing wavelets: surface motion rather than internal bands
+   for(let row=0;row<17;row++){
+     const baseY=cy-R + (row+.55)*(2*R/17);
+     const phase=row*1.37;
+     x.beginPath();
+     for(let i=0;i<=46;i++){
+       const u=i/46, px=cx-R+2*R*u;
+       const py=baseY
+         + Math.sin(u*Math.PI*(3.0+(row%4)*.42)+t*(.65+(row%3)*.10)+phase)*R*.018
+         + Math.sin(u*Math.PI*7.2-t*.38+phase)*R*.006;
+       if(i===0)x.moveTo(px,py);else x.lineTo(px,py);
+     }
+     const shimmer=.10+.08*(.5+.5*Math.sin(t*.47+phase));
+     x.strokeStyle=`rgba(255,218,115,${shimmer})`;
+     x.lineWidth=.55+(row%3)*.18;x.stroke();
+   }
+
+   // irregular moving specular ripples
+   for(let k=0;k<23;k++){
+     const a=k*2.399+t*(.018+(k%5)*.004);
+     const rr=R*(.12+((k*37)%83)/100);
+     const px=cx+Math.cos(a)*rr, py=cy+Math.sin(a*.91)*rr*.72;
+     const len=R*(.045+(k%6)*.009);
+     x.beginPath();
+     x.moveTo(px-len*.5,py);
+     x.quadraticCurveTo(px,py-R*.012*Math.sin(t*.8+k),px+len*.5,py);
+     x.strokeStyle=`rgba(255,242,178,${.08+(k%4)*.025})`;
+     x.lineWidth=.6+(k%3)*.25;x.stroke();
+   }
+   x.restore();requestAnimationFrame(frame);
+ }
+ new ResizeObserver(resize).observe(c);resize();requestAnimationFrame(frame);
+})();
+</script>
+
+
+
+<script>
+/* v0.5.87: event-driven only — no permanent animation loop */
+(()=>{
+ const h=document.getElementById('holo')||document.querySelector('.holo');
+ const g=document.getElementById('coreInputMeterLite');
+ const i=document.getElementById('typingStatus')||document.querySelector('textarea')||document.querySelector('input[type="text"]');
+ if(!h||!g||!i)return;
+ let t=0,last=0,e=0;
+ const pulse=(base=.45)=>{
+   const n=performance.now(), dt=last?n-last:150; last=n;
+   const next=Math.min(1,Math.max(base,150/Math.max(70,dt)));
+   e=e*.45+next*.55;
+   g.style.setProperty('--e',e.toFixed(2));
+   h.classList.add('nexus-input-active');
+   clearTimeout(t);
+   t=setTimeout(()=>{
+     e=0; g.style.setProperty('--e','0');
+     h.classList.remove('nexus-input-active');
+   },360);
+ };
+ i.addEventListener('input',()=>pulse(.42),{passive:true});
+ i.addEventListener('keydown',ev=>{
+   if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){
+     g.style.setProperty('--e','0');
+     if (typeof window.runCoreNoise === 'function') window.runCoreNoise(900);
+   } else if(!ev.isComposing) pulse(.36);
+ },{passive:true});
+})();
+</script>
+
+
+<script>
+/* Render saver: browsers can fully idle the page when hidden. */
+document.addEventListener('visibilitychange',()=>{
+  document.documentElement.toggleAttribute('data-nexus-hidden',document.hidden);
+},{passive:true});
+</script>
+
+
+
+
+
+<script>
+/* NEXUS minimal alignment patch: match conversation-panel top to TASK-panel top only */
+(() => {
+  const alignNexusToTask = () => {
+    const nexus = document.querySelector('.console');
+    const task = document.querySelector('.task-panel');
+    if (!nexus || !task || task.offsetParent === null) return;
+    nexus.style.transform = '';
+    const delta = task.getBoundingClientRect().top - nexus.getBoundingClientRect().top;
+    nexus.style.transform = `translateY(${delta}px)`;
+  };
+  window.addEventListener('load', alignNexusToTask);
+  window.addEventListener('resize', alignNexusToTask);
+})();
+</script>
+
+<script id="remove-voice-control">
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('button, [role="button"], .control, .mode-btn').forEach(el => {
+    if ((el.textContent || '').trim().toUpperCase() === 'VOICE') el.remove();
+  });
+});
+</script>
+
+
+<script id="remove-modebadge-final">
+document.addEventListener('DOMContentLoaded', () => {
+  const modeBadge = document.getElementById('modeBadge');
+  if (modeBadge) modeBadge.remove();
+});
+</script>
+
+
+
+<script id="mic-manual-toggle-fix-js">
+document.addEventListener('DOMContentLoaded', () => {
+  const candidates = [
+    document.getElementById('micBtn'),
+    document.getElementById('micButton'),
+    document.querySelector('.mic-btn'),
+    document.querySelector('button[data-action="mic"]')
+  ].filter(Boolean);
+
+  let mic = candidates[0];
+  if (!mic) {
+    mic = [...document.querySelectorAll('button')].find(el =>
+      /^(MIC|MICROPHONE|🎙|🎤)/i.test((el.textContent || '').trim()) ||
+      /mic/i.test(el.id || '') ||
+      /mic/i.test(el.className || '')
+    );
+  }
+  if (!mic || mic.dataset.manualGlowFixed === '1') return;
+
+  mic.dataset.manualGlowFixed = '1';
+  mic.addEventListener('click', () => {
+    // 版108：光り方は、実際の録音の状態（voice-on）に合わせる。別々に切り替えると、止めたあとも光ったままになっていた
+    mic.classList.toggle('mic-manual-on', mic.classList.contains('voice-on'));
+    mic.setAttribute('aria-pressed',
+      mic.classList.contains('mic-manual-on') ? 'true' : 'false'
+    );
+  });
+});
+</script>
+
+
+<script id="nexus-recording-task-runtime-align">
+(() => {
+  function alignRecordingRightEdge() {
+    const rec = document.getElementById('recordingBtn');
+    const task = document.querySelector('.task-panel');
+    if (!rec || !task) return;
+
+    rec.style.transform = 'none';
+    const taskRight = task.getBoundingClientRect().right;
+    const recRight = rec.getBoundingClientRect().right;
+    const dx = taskRight - recRight;
+
+    rec.style.transform = `translateX(${dx}px)`;
+  }
+
+  window.addEventListener('load', () => {
+    requestAnimationFrame(() => requestAnimationFrame(alignRecordingRightEdge));
+  });
+  window.addEventListener('resize', alignRecordingRightEdge);
+  document.addEventListener('fullscreenchange', () => {
+    requestAnimationFrame(() => requestAnimationFrame(alignRecordingRightEdge));
+  });
+})();
+</script>
+
+<style id="nexus-v0632-milkyway-core-dot-hidden">
+/* Hide only the white dot identified by v0.6.31 diagnosis: milkyway core. */
+.nexus-chat-milkyway i {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+</style>
+
+<style id="nexus-v0639-ui-shapes-fully-clear">
+.console,
+.log,
+.log *,
+.console::before,
+.console::after,
+.log::before,
+.log::after,
+.input-area,
+.quick,
+.quick *,
+.console-head,
+.composer,
+.composer *,
+.typing-status,
+.tool-btn,
+.task-restore,
+.pill,
+.task-panel,
+.task-panel > *:not(.nexus-task-orbit-decor),
+.task-card,
+.route-chip,
+details,
+details *,
+.detail,
+.details,
+.detail-panel,
+.detail-box,
+.detail-card,
+[class*="detail" i],
+.msg,
+.msg * {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 none transparent !important;
+  outline: 0 none transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.console,
+.log {
+  border: 0 none transparent !important;
+  outline: 0 none transparent !important;
+}
+
+.quick *::before,
+.quick *::after,
+.console *::before,
+.console *::after,
+.log *::before,
+.log *::after,
+.composer *::before,
+.composer *::after,
+.typing-status::before,
+.typing-status::after,
+.tool-btn::before,
+.tool-btn::after,
+.task-restore::before,
+.task-restore::after,
+.pill::before,
+.pill::after,
+.task-panel::before,
+.task-panel::after,
+.task-card::before,
+.task-card::after,
+.route-chip::before,
+.route-chip::after,
+details::before,
+details::after,
+details *::before,
+details *::after,
+.msg::before,
+.msg::after,
+.msg *::before,
+.msg *::after {
+  content: none !important;
+  display: none !important;
+  background: transparent !important;
+  border: 0 none transparent !important;
+  box-shadow: none !important;
+}
+
+.route-chip.active::after {
+  content: "ON" !important;
+  display: inline !important;
+  background: transparent !important;
+  border: 0 none transparent !important;
+  box-shadow: none !important;
+}
+</style>
+
+<style id="nexus-v0641-mic-recording-glow-restored">
+#micBtn.voice-on,
+#micBtn.mic-manual-on,
+#micButton.voice-on,
+#micButton.mic-manual-on,
+.mic-btn.voice-on,
+.mic-btn.mic-manual-on,
+button[data-action="mic"].voice-on,
+button[data-action="mic"].mic-manual-on,
+#recordingBtn.voice-on {
+  border: 1px solid rgba(255,165,45,.95) !important;
+  background: rgba(255,132,24,.30) !important;
+  color: #fff1cf !important;
+  box-shadow:
+    0 0 12px rgba(255,153,36,.90),
+    0 0 28px rgba(255,116,20,.68),
+    inset 0 0 18px rgba(255,190,74,.28) !important;
+  text-shadow: 0 0 10px rgba(255,191,61,.45) !important;
+}
+</style>
+
+<style id="nexus-v0643-task-hidden-layout-fixed">
+.app.task-hidden .main {
+  grid-template-columns: minmax(260px, 0.95fr) minmax(270px, 360px) minmax(220px, 292px) !important;
+}
+
+.app.task-hidden .task-panel {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+.app.task-hidden .task-panel > *:not(.nexus-task-orbit-decor) {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.app.task-hidden .nexus-task-orbit-decor,
+.app.task-hidden .nexus-task-orbit-decor * {
+  visibility: visible !important;
+}
+
+.app.task-hidden .task-restore {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: fixed !important;
+  right: clamp(14px, 2.2vw, 28px) !important;
+  top: 94px !important;
+  transform: none !important;
+  writing-mode: horizontal-tb !important;
+  z-index: 2147483646 !important;
+  min-width: 58px !important;
+  height: auto !important;
+  padding: 7px 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(83,215,255,.42) !important;
+  background: rgba(8,20,37,.36) !important;
+  color: rgba(223,246,255,.92) !important;
+  box-shadow: 0 0 14px rgba(83,215,255,.16) !important;
+}
+</style>
+
+<style id="nexus-v0649-task-ring-light-orbits">
+.nexus-task-orbit-decor .task-orbit {
+  overflow: visible !important;
+}
+
+.nexus-task-orbit-decor .task-orbit::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  border-radius: 999px !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  transform-origin: 0 0 !important;
+}
+
+.nexus-task-orbit-decor .o1::before {
+  width: 10px !important;
+  height: 3px !important;
+  margin: -1.5px 0 0 -5px !important;
+  background: linear-gradient(90deg, transparent, rgba(185,245,255,.95), rgba(72,218,255,.88), transparent) !important;
+  box-shadow: 0 0 7px rgba(80,220,255,.62), 0 0 16px rgba(80,220,255,.24) !important;
+  animation: nexusTaskLightOrbit1V0649 18s linear infinite !important;
+}
+
+.nexus-task-orbit-decor .o2::before {
+  width: 6px !important;
+  height: 6px !important;
+  margin: -3px 0 0 -3px !important;
+  background: rgba(204,126,255,.82) !important;
+  box-shadow: 0 0 6px rgba(204,126,255,.56), 0 0 14px rgba(156,88,255,.22) !important;
+  animation: nexusTaskLightOrbit2V0649 26s ease-in-out infinite reverse !important;
+}
+
+.nexus-task-orbit-decor .o3::before {
+  width: 13px !important;
+  height: 2px !important;
+  margin: -1px 0 0 -6.5px !important;
+  background: linear-gradient(90deg, transparent, rgba(255,206,110,.82), rgba(255,150,56,.60), transparent) !important;
+  box-shadow: 0 0 6px rgba(255,178,72,.45), 0 0 12px rgba(255,132,48,.16) !important;
+  animation: nexusTaskLightOrbit3V0649 33s linear infinite !important;
+}
+
+.nexus-task-orbit-decor .o4::before {
+  width: 4px !important;
+  height: 4px !important;
+  margin: -2px 0 0 -2px !important;
+  background: rgba(130,248,255,.64) !important;
+  box-shadow: 0 0 4px rgba(130,248,255,.38), 0 0 10px rgba(80,210,255,.14) !important;
+  animation: nexusTaskLightOrbit4V0649 41s ease-in-out infinite alternate !important;
+}
+
+@keyframes nexusTaskLightOrbit1V0649 {
+  0% { transform: translate(195px, 0) scale(.82); opacity: .34; }
+  22% { transform: translate(36px, 68px) scale(1.08); opacity: .92; }
+  50% { transform: translate(-195px, 0) scale(.74); opacity: .26; }
+  76% { transform: translate(-32px, -68px) scale(1); opacity: .70; }
+  100% { transform: translate(195px, 0) scale(.82); opacity: .34; }
+}
+
+@keyframes nexusTaskLightOrbit2V0649 {
+  0% { transform: translate(165px, 0) scale(.72); opacity: .24; }
+  30% { transform: translate(-18px, 58px) scale(1); opacity: .70; }
+  56% { transform: translate(-165px, 0) scale(.82); opacity: .38; }
+  82% { transform: translate(18px, -58px) scale(1.12); opacity: .58; }
+  100% { transform: translate(165px, 0) scale(.72); opacity: .24; }
+}
+
+@keyframes nexusTaskLightOrbit3V0649 {
+  0% { transform: translate(135px, 0) scale(.76); opacity: .20; }
+  25% { transform: translate(0, 47px) scale(1.04); opacity: .56; }
+  50% { transform: translate(-135px, 0) scale(.72); opacity: .18; }
+  75% { transform: translate(0, -47px) scale(.92); opacity: .42; }
+  100% { transform: translate(135px, 0) scale(.76); opacity: .20; }
+}
+
+@keyframes nexusTaskLightOrbit4V0649 {
+  0% { transform: translate(112px, 0) scale(.68); opacity: .16; }
+  35% { transform: translate(-28px, 38px) scale(.98); opacity: .46; }
+  68% { transform: translate(-112px, 0) scale(.76); opacity: .22; }
+  100% { transform: translate(22px, -38px) scale(1.08); opacity: .38; }
+}
+</style>
+
+
+<script id="nexus-boot-fullscreen-js">
+(() => {
+  // 起動音（会長 2026-11-20「音がチャチい。荘厳な宇宙をイメージした音、光に合わせて鳴って終わる」）。
+  // 会長（同日）「もっと低く、フェードインフェードアウトで」：全体を1オクターブ下げ、高い音を減らし、無音から満ちて無音へ消える。
+  // 光（7.2秒）と同じ長さ：深い地鳴りがゆっくり満ちる → 開いた五度の和音が広がる → 光が N を通る 3.6 秒前後で最も明るく → 7.2 秒で消える。
+  // 音のファイルは使わず、その場で作る（著作権の心配がない・軽い）。広い空間の響きも、その場で作った残響で。
+  function bootSound(ac) {
+    var T = 7.2, t = ac.currentTime + 0.05, end = t + T;
+    var out = ac.createDynamicsCompressor(); out.threshold.value = -14; out.ratio.value = 3; out.connect(ac.destination);
+    var master = ac.createGain(); master.gain.setValueAtTime(0, t); master.gain.linearRampToValueAtTime(0.5, t + 2.2); master.gain.setValueAtTime(0.5, end - 2.4); master.gain.linearRampToValueAtTime(0, end); master.connect(out);
+    // 広い空間の響き（4秒の残響を作る）
+    var len = Math.floor(ac.sampleRate * 4), ir = ac.createBuffer(2, len, ac.sampleRate);
+    for (var ch = 0; ch < 2; ch++) { var d = ir.getChannelData(ch); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    var verb = ac.createConvolver(); verb.buffer = ir; var wet = ac.createGain(); wet.gain.value = 0.55; verb.connect(wet); wet.connect(master);
+    var dry = ac.createGain(); dry.gain.value = 0.6; dry.connect(master);
+    function bus(node) { node.connect(dry); node.connect(verb); }
+    function env(g, a, peak, holdTo, rel) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.setValueAtTime(peak, t + holdTo); g.gain.exponentialRampToValueAtTime(0.0001, t + holdTo + rel); }
+    // 1. 深い地鳴り（C1・C2）：ゆっくり満ちて、終わりに引く
+    [[27.5, 0.45], [32.7, 0.55], [65.4, 0.25]].forEach(function (p) {
+      var o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = p[0];
+      env(g, 3.2, p[1], 5.6, 1.5); o.connect(g); bus(g); o.start(t); o.stop(end + 0.1);
+    });
+    // 2. 宇宙の和音（C・G・C・G・D・E を開いて重ねる）：のこぎりの音を少しずつずらして厚くし、こもった音から明るく開いていく
+    var pad = ac.createBiquadFilter(); pad.type = 'lowpass'; pad.Q.value = 0.7;
+    pad.frequency.setValueAtTime(180, t); pad.frequency.exponentialRampToValueAtTime(1100, t + 3.7); pad.frequency.exponentialRampToValueAtTime(260, end);
+    var pg = ac.createGain(); env(pg, 2.4, 0.22, 5.4, 1.7); pad.connect(pg); bus(pg);
+    [32.7, 49, 65.4, 98, 146.8, 164.8].forEach(function (f, n) {
+      [-7, 0, 7].forEach(function (c) { var o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = c + (n % 2 ? 2 : -2); o.connect(pad); o.start(t); o.stop(end + 0.1); });
+    });
+    // 3. 光が N を通る時の、高い星のきらめき（ゆらぎのある高い音が 2 秒から入り、3.6 秒で最も明るく）
+    [523.3, 784].forEach(function (f, n) {
+      var o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain(); o.type = 'sine'; o.frequency.value = f;
+      lfo.frequency.value = 3 + n * 1.3; lg.gain.value = 0.35; lfo.connect(lg); lg.connect(g.gain);
+      g.gain.setValueAtTime(0.0001, t); g.gain.setValueAtTime(0.0001, t + 1.8 + n * 0.15); g.gain.exponentialRampToValueAtTime(0.025 / (n + 1), t + 3.6); g.gain.exponentialRampToValueAtTime(0.0001, end - 0.2);
+      o.connect(g); bus(g); o.start(t); lfo.start(t); o.stop(end); lfo.stop(end);
+    });
+    // 4. 光の流れに合わせて、風のような音が下から上へ抜ける
+    var nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0); for (var k = 0; k < nd.length; k++) nd[k] = Math.random() * 2 - 1;
+    var ns = ac.createBufferSource(), bp = ac.createBiquadFilter(), ng = ac.createGain(); ns.buffer = nb; ns.loop = true; bp.type = 'bandpass'; bp.Q.value = 2.2;
+    bp.frequency.setValueAtTime(220, t); bp.frequency.exponentialRampToValueAtTime(1800, t + 6.6);
+    env(ng, 2.5, 0.07, 5.2, 1.8); ns.connect(bp); bp.connect(ng); bus(ng); ns.start(t); ns.stop(end + 0.1);
+    // 5. 光が最も強い所（3.6 秒）で、遠くで鳴る大きな鐘のような一打
+    [0.5, 1, 2.01, 2.76, 4.07].forEach(function (r, n) {
+      var o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = 65.4 * r;
+      g.gain.setValueAtTime(0.0001, t); g.gain.setValueAtTime(0.0001, t + 3.5); g.gain.exponentialRampToValueAtTime(0.18 / (n + 1), t + 3.56); g.gain.exponentialRampToValueAtTime(0.0001, end);
+      o.connect(g); bus(g); o.start(t + 3.4); o.stop(end + 0.1);
+    });
+    return T + 0.3;
+  }
+
+  const boot = document.getElementById("nexusBoot");
+  const stage = boot.querySelector(".nx-boot-stage");
+  const band = stage.querySelector(".shine-band");
+  const dimmer = boot.querySelector(".nx-dimmer");
+  const veil = document.getElementById("nxVeil");
+  let started = false;
+  let finished = false;
+  let dimmed = false;
+  let shineTimer;
+  let dimTimer;
+
+  document.getElementById("nexusBootVer").textContent = "v" + NEXUS_VERSION;
+
+  function finish(skip) {
+    if (finished) return;
+    finished = true;
+    clearTimeout(shineTimer);
+    clearTimeout(dimTimer);
+    window.removeEventListener("keydown", engage, true);
+    boot.removeEventListener("click", engage);
+    boot.style.transition = skip ? "none" : "opacity 1.3s ease-in-out, visibility 1.3s";
+    boot.classList.add("gone");
+    veil.remove();
+    window.__nxBootHold = false;
+    window.dispatchEvent(new Event("nx-boot-ready"));
+    if (!skip) setTimeout(() => {
+      const box = document.getElementById("typingStatus");
+      if (box) try { box.focus({ preventScroll: true }); } catch (_) { box.focus(); }
+    }, 200);
+  }
+
+  function dim() {
+    if (dimmed || finished) return;
+    dimmed = true;
+    dimmer.addEventListener("transitionend", () => finish(false), { once: true });
+    boot.classList.add("nx-dim");
+    dimTimer = setTimeout(() => finish(false), 2200);
+  }
+
+  function engage(event) {
+    if (event.type === "keydown" && event.key !== "Enter") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (started || finished) return;
+    started = true;
+    // 起動音と全画面化はクリック・Enter の操作中に開始する。
+    try {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (Audio) {
+        const context = new Audio();
+        const seconds = bootSound(context);
+        setTimeout(() => context.close().catch(() => {}), (seconds + 0.5) * 1000);
+      }
+    } catch (_) {}
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen)
+        document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    } catch (_) {}
+    band.addEventListener("animationend", dim, { once: true });
+    stage.classList.add("go");
+    shineTimer = setTimeout(dim, 8000);
+  }
+
+  if (location.hash.startsWith("#autostart")) boot.querySelector("p").textContent = "ENGAGING…";
+  boot.addEventListener("click", engage);
+  window.addEventListener("keydown", engage, true);
+  window.addEventListener("load", () => { if (!finished) boot.focus({preventScroll:true}); }, {once:true});
+})();
+</script>
+<style id="nexus-gemini-only">
+/* 接続は Gemini のみ：他の選択肢と Claude パネルは出さない */
+#nxAi label.opt:has(input[value="ollama"]), #nxAi label.opt:has(input[value="openai"]),
+#nxAi .sec[data-sec="ollama"], #nxAi .sec[data-sec="openai"], #nxClaudeBtn { display: none !important; }
+</style>
+<style id="nexus-ai-link-css">
+#nxAi{position:fixed;inset:0;z-index:2147483640;display:none;place-items:center;background:rgba(1,4,10,.62);
+  font-family:"Yu Gothic UI","Hiragino Sans",Meiryo,sans-serif}
+#nxAi.open{display:grid}
+#nxAi .panel{width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;padding:22px 24px 18px;border-radius:16px;
+  background:rgba(6,16,30,.94);border:1px solid rgba(83,215,255,.32);box-shadow:0 0 40px rgba(83,215,255,.16),0 20px 60px rgba(0,0,0,.6);color:#e6f4ff}
+#nxAi h3{margin:0 0 4px;font-size:15px;letter-spacing:.32em;color:#8fe4ff;font-weight:600}
+#nxAi .lead{margin:0 0 16px;font-size:12.5px;color:#91a6bd;line-height:1.6}
+#nxAi .opts{display:grid;gap:8px;margin-bottom:14px}
+#nxAi label.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;cursor:pointer;
+  border:1px solid rgba(83,215,255,.14);background:rgba(20,40,64,.35);font-size:13px;line-height:1.5}
+#nxAi label.opt:has(input:checked){border-color:rgba(255,191,61,.6);background:rgba(255,160,40,.10)}
+#nxAi label.opt small{display:block;color:#91a6bd;font-size:11.5px}
+#nxAi .sec{display:none;gap:10px;margin:4px 0 14px;padding:12px;border-radius:10px;background:rgba(10,24,42,.6);border:1px solid rgba(83,215,255,.10)}
+#nxAi .sec.on{display:grid}
+#nxAi .row{display:grid;gap:4px;font-size:12px;color:#9fb6cc}
+#nxAi input[type=text],#nxAi input[type=password],#nxAi select{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;
+  border:1px solid rgba(83,215,255,.24);background:rgba(2,8,18,.8);color:#eaf6ff;font:13px Consolas,"Yu Gothic UI",monospace}
+#nxAi .btns{display:flex;flex-wrap:wrap;gap:8px}
+#nxAi button{padding:8px 14px;border-radius:999px;border:1px solid rgba(83,215,255,.4);background:rgba(20,50,80,.5);color:#dff6ff;
+  font:600 12px "Yu Gothic UI",Meiryo,sans-serif;letter-spacing:.06em;cursor:pointer}
+#nxAi button.primary{border-color:rgba(255,191,61,.7);background:rgba(255,150,40,.22);color:#fff1cf}
+#nxAi button:disabled{opacity:.45;cursor:default}
+#nxAi .stat{min-height:18px;font-size:12px;color:#9fe7c4;white-space:pre-wrap;line-height:1.55}
+#nxAi .stat.err{color:#ff9d95}
+#nxAi .bar{height:6px;border-radius:6px;background:rgba(83,215,255,.12);overflow:hidden;display:none}
+#nxAi .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#53d7ff,#ffbf3d);transition:width .3s}
+#nxAi .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
+#nxAi .note{font-size:11px;color:#6f8aa3;line-height:1.5}
+</style>
+<div id="nxAi" role="dialog" aria-label="AIリンク設定">
+  <div class="panel">
+    <h3>AI LINK</h3>
+    <p class="lead">NEXUSが答えられない質問を、ここで選んだAIに引き継ぎます。タイマー・メモなどの命令は、これまでどおりNEXUS本体が処理します。</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="nxAiKind" value="gemini"><span>Gemini（おすすめ・無料・賢い）<small>Googleの無料の鍵を貼るだけ。PC操作も任せられます</small></span></label>
+      <label class="opt"><input type="radio" name="nxAiKind" value="off"><span>使わない<small>NEXUSのローカル頭脳だけで動かします</small></span></label>
+      <label class="opt"><input type="radio" name="nxAiKind" value="ollama"><span>Ollama（おすすめ・無料・鍵不要）<small>パソコンの中でAIを動かします。会話は外に出ません</small></span></label>
+      <label class="opt"><input type="radio" name="nxAiKind" value="openai"><span>クラウドAI（Gemini・Groq・OpenRouter など）<small>各社の無料枠の鍵を貼るだけ。LM Studio にも対応</small></span></label>
+    </div>
+
+    <div class="sec" data-sec="gemini">
+      <div class="btns"><button type="button" class="primary" id="nxGmGet">① 無料の鍵を取りに行く（Google AI Studio）</button></div>
+      <div class="row">② 取得した鍵（AIza… で始まる文字列）を貼り付け<input type="password" id="nxGmKey" spellcheck="false" placeholder="AIza..."></div>
+      <div class="btns"><button type="button" id="nxGmTest">③ 接続を確認</button></div>
+      <div class="note">鍵はこのパソコンの中にだけ保存されます。NEXUS の入力欄に鍵をそのまま貼り付けても設定できます。</div>
+    </div>
+
+    <div class="sec" data-sec="ollama">
+      <div class="row">接続先<input type="text" id="nxOlUrl" spellcheck="false"></div>
+      <div class="row">使うモデル<select id="nxOlModel"></select></div>
+      <div class="btns">
+        <button type="button" id="nxOlTest">接続を確認</button>
+        <button type="button" id="nxOlPull">おすすめモデルを入れる（gemma3:4b・約3GB）</button>
+      </div>
+      <div class="bar" id="nxOlBar"><i></i></div>
+      <div class="note">Ollama が未導入なら <b>ollama.com</b> から無料で入れてください。入れた後は NEXUS をアイコンから起動し直すと、自動で接続の準備をします。</div>
+    </div>
+
+    <div class="sec" data-sec="openai">
+      <div class="row">サービス<select id="nxOaPreset">
+        <option value="gemini">Google Gemini（無料枠あり）</option>
+        <option value="groq">Groq（無料枠あり・高速）</option>
+        <option value="openrouter">OpenRouter（無料モデルあり）</option>
+        <option value="lmstudio">LM Studio（PC内・無料）</option>
+        <option value="openai">OpenAI（有料）</option>
+        <option value="custom">その他（OpenAI互換）</option>
+      </select></div>
+      <div class="row">接続先URL<input type="text" id="nxOaUrl" spellcheck="false"></div>
+      <div class="row">モデル名<input type="text" id="nxOaModel" spellcheck="false"></div>
+      <div class="row">鍵（APIキー）<input type="password" id="nxOaKey" spellcheck="false" placeholder="この端末の中にだけ保存されます"></div>
+      <div class="btns"><button type="button" id="nxOaTest">接続を確認</button></div>
+    </div>
+
+    <div class="stat" id="nxAiMsg"></div>
+    <div class="foot">
+      <span class="note">設定はこのパソコンの中にだけ保存されます。</span>
+      <div class="btns"><button type="button" id="nxAiClose">閉じる</button><button type="button" class="primary" id="nxAiSave">保存</button></div>
+    </div>
+  </div>
+</div>
+<script id="nexus-ai-link">
+/* NEXUS AI LINK — Ollama（PC内・無料）／OpenAI互換（Gemini・Groq・OpenRouter・LM Studio 等） */
+(() => {
+  const KEY = "nexus.ai.v1";
+  const PRESETS = {
+    gemini:     { url: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash" },
+    groq:       { url: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
+    openrouter: { url: "https://openrouter.ai/api/v1", model: "meta-llama/llama-3.3-70b-instruct:free" },
+    lmstudio:   { url: "http://localhost:1234/v1", model: "local-model" },
+    openai:     { url: "https://api.openai.com/v1", model: "gpt-4o-mini" },
+    custom:     { url: "", model: "" }
+  };
+  const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
+  // Gemini を土台に、ほかの AI も鍵を貼るだけで使う（どれも OpenAI 互換の窓口でつなぐ）
+  const PROV = {
+    gemini:     { name: "Gemini",     base: GEMINI_BASE, url: "https://aistudio.google.com/apikey" },
+    claude:     { name: "Claude",     base: "https://api.anthropic.com/v1", url: "https://console.anthropic.com/settings/keys", prefer: [/haiku/, /sonnet/] },
+    openai:     { name: "ChatGPT",    base: "https://api.openai.com/v1", url: "https://platform.openai.com/api-keys", prefer: [/^gpt-[\d.]+-?mini$/, /mini/, /^gpt-/] },
+    groq:       { name: "Groq",       base: "https://api.groq.com/openai/v1", url: "https://console.groq.com/keys", prefer: [/gpt-oss-120b/, /llama-3\.3-70b/, /llama/] },
+    openrouter: { name: "OpenRouter", base: "https://openrouter.ai/api/v1", url: "https://openrouter.ai/keys", prefer: [/:free$/] },
+    xai:        { name: "Grok",       base: "https://api.x.ai/v1", url: "https://console.x.ai", prefer: [/mini|fast/, /grok/] },
+    server:     { name: "NEXUSサーバー", base: "", url: "" },
+    deepseek:   { name: "DeepSeek",   base: "https://api.deepseek.com/v1", url: "https://platform.deepseek.com/api_keys", prefer: [/chat/] },
+    // 版146：OmniRoute（会長の PC の中の AI の玄関口・http://localhost:20128）。いろいろな AI を1つの鍵（oma_）で使い分ける
+    omniroute:  { name: "OmniRoute",  base: "http://127.0.0.1:20128/v1", url: "http://localhost:20128", prefer: [/gemini-3\.5-flash-lite/, /flash-lite/, /gemini.*flash/] },
+  };
+  // 鍵の形から、どの AI の鍵かを見分ける（sk- だけの鍵は ChatGPT として扱う）
+  const provOfKey = (k) => /^AIza/.test(k) ? "gemini" : /^oma_/.test(k) ? "omniroute" : /^sk-ant-/.test(k) ? "claude" : /^gsk_/.test(k) ? "groq" : /^sk-or-/.test(k) ? "openrouter" : /^xai-/.test(k) ? "xai" : /^sk-/.test(k) ? "openai" : "gemini";
+  const prov = () => (cfg.gemini && PROV[cfg.gemini.prov]) ? cfg.gemini.prov : "gemini";
+  const provBase = () => PROV[prov()].base;
+  const provHeaders = (key) => prov() === "gemini" ? geminiHeaders(key)
+    : prov() === "claude" ? { Authorization: "Bearer " + key, "x-api-key": key, "anthropic-version": "2023-06-01" }
+    : { Authorization: "Bearer " + key };
+  const defaults = { kind: "off", gemini: { key: "", model: "" }, ollama: { url: "http://localhost:11434", model: "" }, openai: { preset: "gemini", url: PRESETS.gemini.url, model: PRESETS.gemini.model, key: "" } };
+  let cfg;
+  try { cfg = Object.assign(structuredClone(defaults), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (_) { cfg = structuredClone(defaults); }
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (_) {} };
+  // 接続は Gemini のみ：以前の Ollama などへの接続は切り替える（鍵があれば Gemini、なければ未接続）
+  if (cfg.kind !== "gemini" && cfg.kind !== "off") { cfg.kind = cfg.gemini && cfg.gemini.key ? "gemini" : "off"; cfg.migratedFromOther = true; persist(); }
+
+  const $ = (id) => document.getElementById(id);
+  const box = $("nxAi"), msg = $("nxAiMsg");
+  const say = (t, err = false) => { msg.textContent = t; msg.classList.toggle("err", err); };
+  const trimUrl = (u) => (u || "").trim().replace(/\/+$/, "");
+
+  /* ---------- 通信 ---------- */
+  // アプリ版：Ollama への通信はアプリ本体が中継（ブラウザの接続許可に左右されない）
+  const bridge = (() => {
+    if (!window.__NEXUS_APP__ || !window.ipc) return null;
+    const pend = new Map(); let seq = 0;
+    window.__nxBridge = {
+      line(id, l) { const p = pend.get(id); if (p) p.onLine(l); },
+      done(id, status) { const p = pend.get(id); if (p) { pend.delete(id); p.resolve(status); } },
+      fail(id, msg) { const p = pend.get(id); if (p) { pend.delete(id); p.reject(new Error(msg)); } }
+    };
+    return (url, method, body, onLine, headers) => new Promise((resolve, reject) => {
+      const id = ++seq; pend.set(id, { resolve, reject, onLine });
+      window.ipc.postMessage(JSON.stringify({ id, url, method, body, headers: headers || {} }));
+    });
+  })();
+  if (cfg.kind === "gemini" && cfg.gemini && cfg.gemini.key && !(cfg.keys && cfg.keys.gemini) && (!cfg.gemini.prov || cfg.gemini.prov === "gemini")) { cfg.keys = Object.assign({}, cfg.keys, { gemini: { key: cfg.gemini.key, model: cfg.gemini.model, auth: cfg.gemini.auth } }); persist(); }
+  const describeNetErr = (e) => /refused|connect|failed to fetch|networkerror|timed out|dns/i.test(String(e && e.message || e))
+    ? "Ollama が応答していません（起動していない可能性）" : String(e && e.message || e);
+  // Ollama の応答（1行1JSON）を順に受け取る
+  async function olStream(url, path, bodyObj, onJson) {
+    const full = trimUrl(url) + path;
+    let err = null, raw = "";
+    const handle = (l) => { if (err) return; raw = l; try { onJson(JSON.parse(l)); } catch (e) { err = e; } };
+    if (bridge) {
+      const status = await bridge(full, bodyObj ? "POST" : "GET", bodyObj ? JSON.stringify(bodyObj) : null, handle);
+      if (status >= 400) throw new Error(`HTTP ${status}` + (status === 404 ? "：モデルが入っていない可能性があります" : "") + (raw ? "：" + raw.slice(0, 120) : ""));
+    } else {
+      const res = await fetch(full, bodyObj ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyObj) } : undefined);
+      if (!res.ok) throw new Error(`HTTP ${res.status}` + (res.status === 404 ? "：モデルが入っていない可能性があります" : ""));
+      for await (const line of readLines(res)) handle(line);
+    }
+    if (err) throw err;
+  }
+  async function ollamaModels(url) {
+    let out = {};
+    await olStream(url, "/api/tags", null, (j) => { out = j; });
+    return (out.models || []).map((m) => m.name);
+  }
+  async function* readLines(res) {
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const { value, done } = await rd.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) yield line; }
+    }
+    if (buf.trim()) yield buf.trim();
+  }
+  async function chat(messages, onToken, signal) {
+    let full = "";
+    if (cfg.kind === "ollama") {
+      try {
+        await olStream(cfg.ollama.url, "/api/chat", { model: cfg.ollama.model, messages, stream: true }, (j) => {
+          if (j.error) throw new Error(j.error);
+          const t = j.message && j.message.content; if (t) { full += t; onToken(full); }
+        });
+      } catch (e) { throw new Error(describeNetErr(e)); }
+    } else if (cfg.kind === "openai") {
+      const h = { "Content-Type": "application/json" };
+      if (cfg.openai.key) h.Authorization = "Bearer " + cfg.openai.key.trim();
+      const res = await fetch(trimUrl(cfg.openai.url) + "/chat/completions", { method: "POST", signal, headers: h,
+        body: JSON.stringify({ model: cfg.openai.model, messages, stream: true }) });
+      if (!res.ok) { let d = ""; try { d = (await res.text()).slice(0, 160); } catch (_) {} throw new Error("AI応答エラー（HTTP " + res.status + "）" + (res.status === 401 || res.status === 403 ? "：鍵を確認してください" : "") + (d ? "\n" + d : "")); }
+      for await (const line of readLines(res)) {
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim(); if (data === "[DONE]") break;
+        const j = JSON.parse(data); const t = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+        if (t) { full += t; onToken(full); }
+      }
+    } else throw new Error("AIが未接続です");
+    return full;
+  }
+  // 1回で完結するJSON通信（アプリ版は本体経由、ブラウザ版は fetch）
+  async function httpJson(url, bodyObj, headers = {}) {
+    let status, text;
+    if (bridge) {
+      const lines = [];
+      status = await bridge(url, bodyObj ? "POST" : "GET", bodyObj ? JSON.stringify(bodyObj) : null, (l) => lines.push(l), headers);
+      text = lines.join("\n");
+    } else {
+      const res = await fetch(url, bodyObj ? { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(bodyObj) } : { headers });
+      status = res.status; text = await res.text();
+    }
+    let json = null; try { json = JSON.parse(text); } catch (_) {}
+    if (status >= 400) {
+      const raw = (json && (json.error && (json.error.message || json.error)) || (Array.isArray(json) && json[0] && json[0].error && json[0].error.message)) || text || "";
+      const msg = String(raw).slice(0, 200);
+      if (status === 400 && /api key|API_KEY/i.test(msg)) throw new Error("鍵（APIキー）が正しくありません");
+      if (status === 401 || status === 403) throw new Error("鍵（APIキー）が使えません：" + msg);
+      if (status === 429) throw new Error("無料枠の利用上限に達しました。少し時間をおいてから話しかけてください");
+      throw new Error(`HTTP ${status}：${msg}`);
+    }
+    return json;
+  }
+  // 鍵の渡し方は2通り（従来の AIza… 鍵は Bearer、新しい形式の鍵は x-goog-api-key で通ることがある）
+  const geminiHeaders = (key, mode = cfg.gemini.auth || "bearer") => mode === "goog" ? { "x-goog-api-key": key } : { Authorization: "Bearer " + key };
+  // 使える Gemini のうち、最新の「flash」系（無料枠向き）を選ぶ
+  async function pickGeminiModel(key) {
+    let out;
+    try { out = await httpJson(GEMINI_BASE + "/models", null, geminiHeaders(key, "bearer")); cfg.gemini.auth = "bearer"; }
+    catch (e) {
+      if (!/鍵|HTTP 40[013]/.test(String(e.message))) throw e;
+      out = await httpJson(GEMINI_BASE + "/models", null, geminiHeaders(key, "goog")); cfg.gemini.auth = "goog";
+    }
+    const ids = ((out && out.data) || []).map((m) => String(m.id || "").replace(/^models\//, ""));
+    // 速さ優先：考え込みの少ない「flash-lite」を先に選ぶ（無ければ通常の flash）
+    const bad = /(image|tts|audio|live|embed|vision|thinking|exp|8b|robotics|computer)/i;
+    const ver = (id) => parseFloat((id.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+    const rank = (list) => list.slice().sort((a, b) => (ver(b) - ver(a)) || (/preview/.test(a) - /preview/.test(b)) || (a.length - b.length));
+    const lite = rank(ids.filter((id) => /^gemini-/.test(id) && /flash-lite/.test(id) && !bad.test(id)));
+    const flash = rank(ids.filter((id) => /^gemini-/.test(id) && /flash/.test(id) && !/lite/.test(id) && !bad.test(id)));
+    // 版136：会話は lite に戻す（版134 で選んだ gemini-3.8-flash は会長の鍵では断られ、何も答えなくなった）
+    // 版160：会話は頭の良い flash に（会長「あまり会話が成立しない」）。ただし会長の鍵で動いたことのある 3.5 系を選ぶ（3.8 は断られた）。
+    // 無料枠が切れたら（429）lite に切り替わる（版134 の仕組み）
+    const okFlash = flash.find((id) => /^gemini-3\.5-flash$/.test(id));
+    return okFlash || lite[0] || flash[0] || ids.find((id) => /^gemini-/.test(id)) || "gemini-2.5-flash-lite";
+  }
+  // Gemini 以外：その AI のモデル一覧から、速くて安いものを選ぶ（会社がモデル名を変えても追いつくように、決め打ちしない）
+  async function pickOtherModel(p, key) {
+    const h = p === "claude" ? { "x-api-key": key, "anthropic-version": "2023-06-01" } : { Authorization: "Bearer " + key };
+    const out = await httpJson(PROV[p].base + "/models", null, h);
+    const bad = /(embed|tts|whisper|dall-e|image|audio|realtime|transcribe|moderation|search|vision|guard|instruct-|-instruct$|codex|computer)/i;
+    const ids = ((out && out.data) || []).map((m) => String(m.id || "")).filter((id) => id && !bad.test(id));
+    for (const re of PROV[p].prefer || []) { const hit = ids.filter((id) => re.test(id)).sort((a, b) => a.length - b.length)[0]; if (hit) return hit; }
+    if (!ids.length) throw new Error(PROV[p].name + " で使えるモデルが見つかりませんでした");
+    return ids[0];
+  }
+  async function setupGemini(key, force) {
+    key = String(key || "").trim();
+    if (!/^[0-9A-Za-z_\-.]{20,240}$/.test(key)) throw new Error("鍵の形ではありません（空白のない英数字の長い文字列です）");
+    const p = force && PROV[force] ? force : provOfKey(key);
+    const model = p === "gemini" ? await pickGeminiModel(key) : await pickOtherModel(p, key);
+    // 版180：Gemini の鍵があるときは、ほかの AI は相談相手として預かるだけ（主役は Gemini のまま）
+    if (p !== "gemini" && p !== "omniroute" && cfg.keys && cfg.keys.gemini && cfg.keys.gemini.key) {
+      cfg.keys = Object.assign({}, cfg.keys, { [p]: { key, model, auth: "bearer" } }); persist(); syncBadge();
+      return model;
+    }
+    cfg.kind = "gemini"; cfg.gemini = { key, model, prov: p, auth: p === "gemini" ? (cfg.gemini.auth || "bearer") : "bearer" }; cfg.userOff = false;
+    cfg.keys = Object.assign({}, cfg.keys, { [p]: { key, model, auth: cfg.gemini.auth } }); persist(); syncBadge();
+    return model;
+  }
+  // 鍵を保存してある AI に切り替える（「AIをClaudeにして」など）
+  function useProvider(p) {
+    const k = cfg.keys && cfg.keys[p];
+    if (!k) return false;
+    cfg.kind = "gemini"; cfg.gemini = { key: k.key, model: k.model, prov: p, auth: k.auth || "bearer" }; cfg.userOff = false; persist(); syncBadge();
+    return true;
+  }
+  const providers = () => Object.keys(PROV).map((p) => ({ id: p, name: PROV[p].name, url: PROV[p].url, saved: !!(cfg.keys && cfg.keys[p]), current: enabled() && prov() === p }));
+  // 返答を流しながら受け取る1往復（文字は届いた順に onText へ、道具の呼び出しは組み立てて返す）
+  const THINK_OFF = ["none", "minimal", "low", ""];   // 速さ優先：考え込みを止める指定を、受け付けられる順に試す
+  let agentStepStream = agentStepStream0;
+  async function agentStepStream0(messages, tools, onText) {
+    if (cfg.kind !== "gemini") return agentStep(messages, tools);
+    const url = provBase() + "/chat/completions", headers = provHeaders(cfg.gemini.key);
+    for (;;) {
+      const effort = cfg.gemini.effort ?? THINK_OFF[0];
+      const useLite = (cfg.gemini.liteUntil || 0) > Date.now() && !/lite/.test(cfg.gemini.model);
+      const body = { model: useLite ? cfg.gemini.model + "-lite" : cfg.gemini.model, messages, stream: true };
+      if (useLite) Object.defineProperty(body, "__lite", { value: true, enumerable: false });
+      if (tools && tools.length) { body.tools = tools; body.tool_choice = "auto"; }
+      if (effort) body.reasoning_effort = effort;
+      let text = "", errText = ""; const calls = [];
+      const onLine = (l) => {
+        if (!l.startsWith("data:")) { errText += l + "\n"; return; }
+        const data = l.slice(5).trim(); if (data === "[DONE]") return;
+        let j; try { j = JSON.parse(data); } catch (_) { errText += data; return; }
+        const d = j.choices && j.choices[0] && j.choices[0].delta; if (!d) return;
+        if (d.content) { text += d.content; onText(text); }
+        for (const tc of d.tool_calls || []) {
+          const i = tc.index ?? calls.length;
+          const c = calls[i] || (calls[i] = { id: tc.id || "call_" + i, type: "function", function: { name: "", arguments: "" } });
+          if (tc.id) c.id = tc.id;
+          if (tc.function && tc.function.name) c.function.name += tc.function.name;
+          if (tc.function && tc.function.arguments) c.function.arguments += tc.function.arguments;
+          // 版172：Gemini 3 は道具の呼び出しに「考えの署名」を付けて返す。次の往復でそのまま返さないと 400 になる
+          if (tc.extra_content) c.extra_content = tc.extra_content;
+        }
+      };
+      let status;
+      if (bridge) status = await bridge(url, "POST", JSON.stringify(body), onLine, headers);
+      else {
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+        status = res.status;
+        if (res.ok) for await (const l of readLines(res)) onLine(l); else errText = await res.text();
+      }
+      if (status >= 400) {
+        // 考え込み停止の指定を受け付けないモデルなら、次の指定で自動的にやり直す
+        // 400 は考え込みの指定が合わないことが多い。指定を一段ずつ緩めて再試行（全部外しても駄目なら報告）
+        // 版133：道具つきで断られたら、道具なしで聞き直す（「AIとの接続に失敗しました」を出さない）
+        if ((status === 400 || status === 500) && tools && tools.length) { nxLog("ai retry without tools " + status); tools = undefined; delete body.tools; delete body.tool_choice; continue; }
+        if (status === 400 && effort !== "") {
+          cfg.gemini.effort = THINK_OFF[THINK_OFF.indexOf(effort) + 1] ?? ""; persist(); continue;
+        }
+        let msg = errText; try { const j = JSON.parse(errText); msg = (j.error && j.error.message) || (j[0] && j[0].error && j[0].error.message) || errText; } catch (_) {}
+        // 版134：flash の無料枠が尽きたら、その回は lite で聞き直す
+        if (status === 429 && !/lite/.test(body.model) && !body.__lite) { nxLog("ai 429 -> lite"); cfg.gemini.liteUntil = Date.now() + 3600000; persist(); continue; }
+        if (status === 429) throw new Error("無料枠の利用上限に達しました。少し時間をおいてから話しかけてください");
+        if (/api key/i.test(msg)) throw new Error("鍵（APIキー）が正しくありません");
+        throw new Error(`HTTP ${status}：${String(msg).slice(0, 160)}`);
+      }
+      if (cfg.gemini.effort === undefined) { cfg.gemini.effort = effort; persist(); }
+      return { role: "assistant", content: text || null, tool_calls: calls.filter(Boolean).length ? calls.filter(Boolean) : undefined };
+    }
+  }
+
+  // 道具（関数）を使えるAIへの1往復。返り値は assistant メッセージ
+  async function agentStep(messages, tools) {
+    let url, headers, model;
+    if (cfg.kind === "gemini") { url = provBase() + "/chat/completions"; headers = provHeaders(cfg.gemini.key); model = cfg.gemini.model; }
+    else if (cfg.kind === "openai") { url = trimUrl(cfg.openai.url) + "/chat/completions"; headers = cfg.openai.key ? { Authorization: "Bearer " + cfg.openai.key } : {}; model = cfg.openai.model; }
+    else throw new Error("道具を使えるAIにつながっていません");
+    const out = await httpJson(url, { model, messages, tools, tool_choice: "auto" }, headers);
+    const msg = out && out.choices && out.choices[0] && out.choices[0].message;
+    if (!msg) throw new Error("AIから応答がありませんでした");
+    return msg;
+  }
+  const supportsTools = () => cfg.kind === "gemini";
+  const enabled = () => cfg.kind === "gemini" && !!cfg.gemini.key && !!cfg.gemini.model;
+  const label = () => enabled() ? "CONNECTED" : "OFF";   // 接続先の名前やモデル名は表示しない
+
+  /* ---------- 設定パネル ---------- */
+  const radios = [...document.querySelectorAll('input[name="nxAiKind"]')];
+  const showSec = () => {
+    const k = (radios.find((r) => r.checked) || {}).value || "off";
+    box.querySelectorAll(".sec").forEach((s) => s.classList.toggle("on", s.dataset.sec === k));
+  };
+  radios.forEach((r) => r.addEventListener("change", () => { showSec(); say(""); if (r.value === "ollama" && r.checked) refreshOllama(); }));
+  const fillModels = (names, keep) => {
+    const sel = $("nxOlModel"); sel.innerHTML = "";
+    if (!names.length) { const o = document.createElement("option"); o.value = ""; o.textContent = "（モデルが入っていません）"; sel.append(o); return; }
+    names.forEach((n) => { const o = document.createElement("option"); o.value = o.textContent = n; sel.append(o); });
+    if (keep && names.includes(keep)) sel.value = keep;
+  };
+  async function refreshOllama() {
+    say("Ollama を探しています…");
+    try {
+      const names = await ollamaModels($("nxOlUrl").value);
+      fillModels(names, cfg.ollama.model);
+      say(names.length ? `接続できました。モデル ${names.length} 個を見つけました。` : "接続できました。モデルがまだ無いので「おすすめモデルを入れる」を押してください。");
+      return true;
+    } catch (e) {
+      fillModels([], "");
+      say("Ollama に接続できません。\n・Ollama を入れて起動しているか\n・NEXUS をデスクトップのアイコンから起動し直したか（接続許可を自動設定します）\nを確認してください。", true);
+      return false;
+    }
+  }
+  $("nxOlTest").onclick = refreshOllama;
+  $("nxOlPull").onclick = async () => {
+    const btn = $("nxOlPull"), bar = $("nxOlBar"), fill = bar.querySelector("i");
+    btn.disabled = true; bar.style.display = "block"; fill.style.width = "0%";
+    say("gemma3:4b をダウンロードしています。回線によっては数分〜十数分かかります…");
+    try {
+      await pullModel($("nxOlUrl").value, "gemma3:4b", (t, pct) => { say(t); if (pct != null) fill.style.width = pct + "%"; });
+      fill.style.width = "100%"; cfg.ollam
