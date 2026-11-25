@@ -59,3 +59,6 @@ body:has(#nxOnboard) .nexus-comet-v141{display:none!important}
 #nxOnboard .nxob-paste.nxob-dim{opacity:.55}
 #nxOnboard .nxob-more{margin:6px 0;color:#bfe6ff;font-size:13px}
 #nxOnboard .nxob-more summary{cursor:pointer;color:#7fd4ff}
+
+/* 会長（2026-11-25）：長いライセンスの鍵（切れ目のない文字）を貼ると入力欄が画面の外まで伸び、送信ボタンが押し出されて消えた。長い文字も途中で折り返す */
+#typingStatus{overflow-wrap:anywhere!important;word-break:break-all!important;white-space:pre-wrap!important;overflow-x:hidden!important;overflow-y:auto!important;max-width:100%!important}
