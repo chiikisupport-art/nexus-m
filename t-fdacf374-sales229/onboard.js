@@ -191,7 +191,10 @@
   function autoClose() {
     if (step() === 'done' && !doneTimer) doneTimer = setTimeout(function () { var s = get(); s.closed = true; put(s); render(); }, 12000);
   }
-  addEventListener('load', function () {
+  // iPhone の Safari では load の合図が来ないことがある（2026-11-26 会長「ライセンスの案内すら出ない」）。合図を待たずに、読み込みの途中でも 1.5 秒で始める
+  var started = false;
+  function start() {
+    if (started) return; started = true;
     try { localStorage.removeItem('nxVoiceEngine'); } catch (e) { }
     try { var vo = JSON.parse(localStorage.getItem('nexus.voice.v1') || '{}'); if (vo.sysVoice) { delete vo.sysVoice; localStorage.setItem('nexus.voice.v1', JSON.stringify(vo)); } } catch (e) { }
     setInterval(function () {
@@ -203,5 +206,6 @@
       watchTalk(); render(); autoClose();
     }, 800);
     addEventListener('nexus-ai-changed', render);
-  });
+  }
+  if (document.readyState === 'complete') start(); else { addEventListener('load', start); addEventListener('DOMContentLoaded', function () { setTimeout(start, 1500); }); setTimeout(start, 4000); }
 })();
