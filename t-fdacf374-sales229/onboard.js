@@ -106,7 +106,10 @@
   var card = null, shown = '';
   function render() {
     var st = step(); if (st === shown && card) return; shown = st;
-    if (!st) { if (card) card.remove(); card = null; return; }
+    // 案内の窓は .app（重なり順 1）の中にある。上に重なる飾りの層（天の川・オーロラ＝7・8）に隠されないよう、案内の間だけ .app を上げる（2026-11-27 会長「iPhone で青い窓が出ない」）
+    var appBox = document.querySelector('.app');
+    if (!st) { if (card) card.remove(); card = null; if (appBox) appBox.style.zIndex = ''; return; }
+    if (appBox) appBox.style.zIndex = '9';
     var area = document.querySelector('.input-area'); if (!area) return;
     if (!card) { card = document.createElement('section'); card.id = 'nxOnboard'; card.setAttribute('aria-live', 'polite'); area.parentElement.insertBefore(card, area); }
     var d = STEPS[st], h = '<h3>' + d.title + '</h3>';

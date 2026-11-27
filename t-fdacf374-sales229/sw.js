@@ -1,5 +1,5 @@
 'use strict';
-const CACHE='nexus-sales-shell-v8';
+const CACHE='nexus-sales-shell-v9';
 const FILES=['./','./index.html','./mobile.css','./mobile-platform.js','./onboard.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('nexus-sales-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
